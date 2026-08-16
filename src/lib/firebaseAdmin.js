@@ -24,16 +24,18 @@ export function getAdminFirestore() {
     const credentials = process.env.GOOGLE_APPLICATION_CREDENTIALS;
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
-    if (credentials && credentials.startsWith('{')) {
-      // Inline JSON (e.g. Vercel, Cloud Run)
-      initializeApp({
-        credential: cert(JSON.parse(credentials)),
-        projectId,
-      });
-    } else if (credentials) {
-      // File path (local dev with service account)
-      const fs = require('fs');
-      const serviceAccount = JSON.parse(fs.readFileSync(credentials, 'utf8'));
+    if (credentials) {
+      const creds = credentials.trim();
+      if (creds.startsWith('{')) {
+        // Inline JSON (e.g. Vercel, Cloud Run)
+        initializeApp({
+          credential: cert(JSON.parse(creds)),
+          projectId,
+        });
+      } else {
+        // File path (local dev with service account)
+        const fs = require('fs');
+        const serviceAccount = JSON.parse(fs.readFileSync(creds, 'utf8'));
       initializeApp({
         credential: cert(serviceAccount),
         projectId,
