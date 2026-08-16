@@ -152,14 +152,15 @@ export async function listHostEvents() {
   const db = await getDb();
   if (db) {
     const creatorToken = await getDeviceToken();
-    const { collection, query, where, getDocs, orderBy } = await firestoreModules();
+    const { collection, query, where, getDocs } = await firestoreModules();
     const q = query(
       collection(db, 'events'),
-      where('creatorToken', '==', creatorToken),
-      orderBy('createdAt', 'desc')
+      where('creatorToken', '==', creatorToken)
     );
     const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const results = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    // Sort in-memory so we don't require a Firebase composite index for where() + orderBy()
+    return results.sort((a, b) => b.createdAt - a.createdAt);
   }
   // Fallback
   const ids = JSON.parse(storeGet('hostEvents') || '[]');
