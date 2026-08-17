@@ -8,23 +8,29 @@ export function middleware(request) {
       const origin = request.headers.get('origin');
       const host = request.headers.get('host');
 
-      const allowedOrigin = process.env.APP_ORIGIN || process.env.NEXT_PUBLIC_APP_URL;
-      
       if (process.env.NODE_ENV === 'production') {
-        if (!allowedOrigin) {
-          console.error('[CRITICAL] CSRF Middleware: APP_ORIGIN is not configured in production.');
-          return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-        }
-        if (origin !== allowedOrigin) {
-          console.warn(`CSRF protection rejected request to ${request.nextUrl.pathname} from origin ${origin}. Expected ${allowedOrigin}`);
-          return NextResponse.json({ error: 'Forbidden: CSRF protection' }, { status: 403 });
+        if (origin) {
+          try {
+            const originUrl = new URL(origin);
+            if (originUrl.host !== host) {
+              console.warn(`CSRF protection rejected request to ${request.nextUrl.pathname} from origin ${origin}. Expected host ${host}`);
+              return NextResponse.json({ error: 'Forbidden: CSRF protection' }, { status: 403 });
+            }
+          } catch (e) {
+            return NextResponse.json({ error: 'Forbidden: Invalid origin' }, { status: 403 });
+          }
         }
         return NextResponse.next();
       }
 
       // Fallback for local development
-      if (allowedOrigin && origin === allowedOrigin) {
-        return NextResponse.next();
+      if (origin) {
+        try {
+          const originUrl = new URL(origin);
+          if (originUrl.host === host) {
+            return NextResponse.next();
+          }
+        } catch (e) {}
       }
 
       const secFetchSite = request.headers.get('sec-fetch-site');
