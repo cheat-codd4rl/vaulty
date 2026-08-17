@@ -16,11 +16,15 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { createEventFolder } from '@/lib/drive';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'vaulty_fallback_secret_change_me_in_production';
 
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, date, accessMode, moderationMode, photographerName, deviceToken } = body;
+    const { name, date, accessMode, moderationMode, photographerName, deviceToken, host_password } = body;
 
     if (!name || !deviceToken) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -31,14 +35,12 @@ export async function POST(request) {
     const collaboratorCode = Math.random().toString(36).slice(2, 10);
     const pin = accessMode === 'pin' ? String(Math.floor(1000 + Math.random() * 9000)) : null;
 
-    // Create the Drive folder for this event — done once here, not per-upload
+    // Create the Drive folder for this event
     let driveFolderId = null;
     try {
       driveFolderId = await createEventFolder(id, name);
     } catch (err) {
       console.error('Drive folder creation failed:', err.message);
-      // Don't block event creation if Drive isn't configured (local dev)
-      // The upload route will handle the missing folderId gracefully
     }
 
     const event = {
@@ -56,9 +58,46 @@ export async function POST(request) {
       createdAt: Date.now(),
     };
 
+    let hostToken = null;
+    let hostPasswordSet = false;
+
+    // Handle password
+    if (host_password) {
+      event.hostPasswordHash = await bcrypt.hash(host_password, 12);
+      hostPasswordSet = true;
+      
+      // Issue JWT
+      hostToken = jwt.sign(
+        { event_id: id, role: 'host' },
+        JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+    }
+
     await adminDb.collection('events').doc(id).set(event);
 
-    return NextResponse.json(event);
+    const responsePayload = { ...event };
+    if (hostPasswordSet) {
+      responsePayload.host_token = hostToken;
+      responsePayload.host_password_set = true;
+    } else {
+      responsePayload.host_password_set = false;
+    }
+
+    const res = NextResponse.json(responsePayload);
+
+    // Set cookie if token was generated
+    if (hostToken) {
+      res.cookies.set(`vaulty_host_${id}`, hostToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60 // 7 days in seconds
+      });
+    }
+
+    return res;
   } catch (err) {
     console.error('Event creation failed:', err);
     return NextResponse.json({ error: 'Failed to create event' }, { status: 500 });

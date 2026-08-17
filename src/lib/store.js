@@ -92,6 +92,7 @@ export async function createEvent(data) {
         moderationMode: data.moderationMode || 'auto',
         photographerName: data.photographerName || '',
         deviceToken: creatorToken,
+        host_password: data.hostPassword || null,
       }),
     });
     if (!res.ok) {

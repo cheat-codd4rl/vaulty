@@ -14,6 +14,7 @@ export default function NewEventModal({ onClose, onCreated }) {
   const [photographerName, setPhotographerName] = useState('');
   const [coverData, setCoverData] = useState(null);
   const [coverSet, setCoverSet] = useState(false);
+  const [hostPassword, setHostPassword] = useState('');
   const coverInput = useRef(null);
 
   const handleCover = async (e) => {
@@ -49,6 +50,7 @@ export default function NewEventModal({ onClose, onCreated }) {
       accessMode,
       moderationMode,
       photographerName: photographerName.trim(),
+      hostPassword: hostPassword || null,
     });
     showToast('Event created');
     if (onCreated) onCreated(event);
@@ -154,6 +156,19 @@ export default function NewEventModal({ onClose, onCreated }) {
               value={photographerName}
               onChange={(e) => setPhotographerName(e.target.value)}
             />
+          </div>
+          <div className="field">
+            <label htmlFor="evHostPassword">Host Password (Optional)</label>
+            <input
+              type="password"
+              id="evHostPassword"
+              placeholder="Set a password to recover host access later"
+              value={hostPassword}
+              onChange={(e) => setHostPassword(e.target.value)}
+            />
+            <div className="hint">
+              If left blank, you won&apos;t be able to recover host access on another device.
+            </div>
           </div>
           <button type="submit" className="btn btn-brass btn-block">
             Create event

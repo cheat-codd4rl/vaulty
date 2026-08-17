@@ -27,21 +27,91 @@ export default function HostEventPage({ params }) {
   const [uploads, setUploads] = useState([]);
   const [loaded, setLoaded] = useState(false);
 
+  const [isJwtSession, setIsJwtSession] = useState(false);
+  const [showPasswordSetup, setShowPasswordSetup] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
+
   const loadData = useCallback(async () => {
-    const ev = await getEvent(id);
-    if (!ev) {
+    try {
+      // 1. Check JWT session
+      const sessionRes = await fetch(`/api/events/${id}/host/session`);
+      const sessionData = await sessionRes.json();
+      
+      let isFallback = false;
+      const ev = await getEvent(id);
+      
+      if (!ev) {
+        setLoaded(true);
+        return;
+      }
+
+      if (sessionData.valid) {
+        setIsJwtSession(true);
+      } else {
+        // 2. Check legacy fallback
+        const { getDeviceToken } = await import('@/lib/store');
+        const token = await getDeviceToken();
+        if (ev.creatorToken === token) {
+          isFallback = true;
+        } else {
+          // Unauthorized, route to login
+          router.push('/host-login');
+          return;
+        }
+      }
+
+      setEvent(ev);
+      const ups = await listUploads(id);
+      setUploads(ups);
       setLoaded(true);
-      return;
+
+      // If fallback and no password set, show banner
+      if (isFallback && !ev.hostPasswordHash) {
+        setShowPasswordSetup(true);
+      }
+    } catch (err) {
+      console.error(err);
+      setLoaded(true);
     }
-    setEvent(ev);
-    const ups = await listUploads(id);
-    setUploads(ups);
-    setLoaded(true);
-  }, [id]);
+  }, [id, router]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const handleSetPassword = async (e) => {
+    e.preventDefault();
+    if (!newPassword) return;
+    setSavingPassword(true);
+    try {
+      const { getDeviceToken } = await import('@/lib/store');
+      const token = await getDeviceToken();
+      const res = await fetch(`/api/events/${id}/host-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ new_password: newPassword, deviceToken: token })
+      });
+      if (res.ok) {
+        showToast('Password set successfully!');
+        setShowPasswordSetup(false);
+        // Force login with new password to get JWT
+        const loginRes = await fetch(`/api/events/${id}/host-login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: newPassword })
+        });
+        if (loginRes.ok) {
+          setIsJwtSession(true);
+        }
+      } else {
+        showToast('Failed to set password');
+      }
+    } catch (err) {
+      showToast('Error setting password');
+    }
+    setSavingPassword(false);
+  };
 
   const pending = uploads.filter((u) => u.status === 'pending');
   const approved = uploads.filter((u) => u.status === 'approved');
@@ -178,6 +248,31 @@ export default function HostEventPage({ params }) {
   return (
     <>
       <Navbar />
+
+      {showPasswordSetup && (
+        <div className="wrap section" style={{ paddingBottom: 0 }}>
+          <div className="card" style={{ background: '#FFF3CD', color: '#856404', borderColor: '#FFEEBA' }}>
+            <h3 style={{ marginTop: 0 }}>Protect Your Event</h3>
+            <p style={{ marginTop: 0 }}>
+              You haven&apos;t set a host password for this event. If you clear your browser data or switch devices, you will lose host access permanently.
+            </p>
+            <form onSubmit={handleSetPassword} style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+              <input
+                type="password"
+                placeholder="Set a password..."
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                style={{ flex: 1, padding: '8px', border: '1px solid #CCC', borderRadius: '4px' }}
+              />
+              <button type="submit" className="btn btn-sm" disabled={savingPassword}>
+                {savingPassword ? 'Saving...' : 'Set Password'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       <div className="wrap">
         <div className="event-header">
           <button className="back" onClick={() => router.push('/host')}>
