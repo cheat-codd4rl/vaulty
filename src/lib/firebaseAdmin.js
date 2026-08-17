@@ -12,6 +12,7 @@
   getter) for convenience — API routes can use either.
 */
 
+import fs from 'fs';
 import { initializeApp, getApps, cert, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -34,7 +35,6 @@ export function getAdminFirestore() {
         });
       } else {
         // File path (local dev with service account)
-        const fs = require('fs');
         const serviceAccount = JSON.parse(fs.readFileSync(creds, 'utf8'));
         initializeApp({
           credential: cert(serviceAccount),
