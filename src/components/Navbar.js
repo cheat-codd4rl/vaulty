@@ -7,7 +7,8 @@ export default function Navbar() {
   return (
     <div className="topnav">
       <Link href="/" className="brand" aria-label="Vaulty home">
-        <img src="/vaulty-icon.svg" alt="Vaulty icon" className="brand-logo-icon" />
+        <img src="/vaulty-dark-40.svg" alt="Vaulty icon" className="brand-logo-icon logo-dark" />
+        <img src="/vaulty-light-40.svg" alt="Vaulty icon" className="brand-logo-icon logo-light" />
         <span className="word">
           Vault<em>y</em>
         </span>

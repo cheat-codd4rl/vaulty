@@ -94,6 +94,10 @@ a { color: inherit; }
 .brand .word { font-size: 32px; font-weight: 600; letter-spacing: 0.01em; height: 40px; line-height: 40px; }
 .brand .word em { color: var(--brass); font-style: normal; }
 .brand-logo-icon { width: 40px; height: 40px; flex: none; border-radius: 8px; }
+.logo-light { display: none; }
+.logo-dark { display: block; }
+[data-theme="light"] .logo-light { display: block; }
+[data-theme="light"] .logo-dark { display: none; }
 .navlinks { display: flex; gap: 12px; align-items: center; }
 
 /* ---------- Buttons ---------- */
