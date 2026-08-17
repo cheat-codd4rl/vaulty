@@ -53,8 +53,8 @@ export default function HomeGate() {
       <div style={{ width: '100%', maxWidth: '380px', display: 'flex', flexDirection: 'column', gap: '32px', padding: '48px 0' }}>
         
         <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <img src="/vaulty-dark-128.svg" alt="Vaulty icon" className="logo-dark" style={{ width: '64px', height: '64px', margin: '0 auto 16px', borderRadius: '14px', objectFit: 'cover' }} />
-          <img src="/vaulty-light-128.svg" alt="Vaulty icon" className="logo-light" style={{ width: '64px', height: '64px', margin: '0 auto 16px', borderRadius: '14px', objectFit: 'cover' }} />
+          <img src="/vaulty-dark-128.svg" alt="Vaulty icon" className="logo-dark" style={{ width: '96px', height: '96px', margin: '0 auto 16px', borderRadius: '18px', objectFit: 'cover' }} />
+          <img src="/vaulty-light-128.svg" alt="Vaulty icon" className="logo-light" style={{ width: '96px', height: '96px', margin: '0 auto 16px', borderRadius: '18px', objectFit: 'cover' }} />
           <h1 style={{ fontSize: '38px', letterSpacing: '-0.02em' }}>
             Vault<em style={{ color: 'var(--brass)', fontStyle: 'normal' }}>y</em>
           </h1>
