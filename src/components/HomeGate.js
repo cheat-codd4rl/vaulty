@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useToast } from '@/components/Toast';
+import AbsoluteThemeToggle from '@/components/AbsoluteThemeToggle';
 
 const VIEW = { ROOT: 'root', HOST: 'host', GUEST: 'guest' };
 
@@ -50,6 +51,7 @@ export default function HomeGate() {
 
   return (
     <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 24px', background: 'var(--ink)' }}>
+      <AbsoluteThemeToggle />
       <div style={{ width: '100%', maxWidth: '380px', display: 'flex', flexDirection: 'column', gap: '32px', padding: '48px 0' }}>
         
         <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>

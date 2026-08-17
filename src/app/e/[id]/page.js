@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import UploadDropzone from '@/components/UploadDropzone';
 import Gallery from '@/components/Gallery';
+import AbsoluteThemeToggle from '@/components/AbsoluteThemeToggle';
 import { useToast } from '@/components/Toast';
 import {
   getEvent,
@@ -111,7 +112,14 @@ export default function GuestPage({ params }) {
       <>
         <Navbar />
         <div className="wrap section">
-          <p style={{ color: 'var(--text-dim)' }}>Loading…</p>
+          <div className="event-header">
+            <div className="skeleton" style={{ width: '120px', height: '16px', marginBottom: '8px' }}></div>
+            <div className="skeleton" style={{ width: '240px', height: '40px', marginBottom: '16px' }}></div>
+          </div>
+          <div style={{ marginTop: '32px' }}>
+             <div className="skeleton" style={{ width: '100%', height: '120px', borderRadius: '16px', marginBottom: '24px' }}></div>
+             <div className="skeleton" style={{ width: '100%', height: '200px', borderRadius: '16px' }}></div>
+          </div>
         </div>
       </>
     );
@@ -132,30 +140,35 @@ export default function GuestPage({ params }) {
   // PIN gate
   if (event.accessMode === 'pin' && !pinUnlocked) {
     return (
-      <>
-        <Navbar />
-        <div className="wrap pin-screen">
-          <h2>{event.name}</h2>
-          <p style={{ color: 'var(--text-dim)' }}>Enter the code your host gave you</p>
-          <input
-            className="pin-input"
-            maxLength={4}
-            inputMode="numeric"
-            placeholder="••••"
-            value={pinValue}
-            onChange={(e) => setPinValue(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handlePinSubmit()}
-          />
-          <div>
-            <button className="btn btn-brass" onClick={handlePinSubmit}>
+      <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 24px', background: 'var(--ink)' }}>
+        <AbsoluteThemeToggle />
+        <div style={{ width: '100%', maxWidth: '380px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <img src="/vaulty-dark-128.svg" alt="Vaulty icon" className="logo-dark" style={{ width: '80px', height: '80px', margin: '0 auto 16px', borderRadius: '16px', objectFit: 'cover' }} />
+            <img src="/vaulty-light-128.svg" alt="Vaulty icon" className="logo-light" style={{ width: '80px', height: '80px', margin: '0 auto 16px', borderRadius: '16px', objectFit: 'cover' }} />
+            <h2 style={{ fontSize: '28px', letterSpacing: '-0.02em', margin: '0 0 8px 0' }}>{event.name}</h2>
+            <p style={{ color: 'var(--text-dim)', fontSize: '15px', margin: 0 }}>Enter the code your host gave you</p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <input
+              className="pin-input"
+              maxLength={4}
+              inputMode="numeric"
+              placeholder="••••"
+              value={pinValue}
+              onChange={(e) => setPinValue(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handlePinSubmit()}
+              style={{ margin: '0 auto', width: '100%' }}
+            />
+            {pinError && (
+              <p style={{ color: 'var(--rust)', fontSize: 13, textAlign: 'center', margin: 0 }}>{pinError}</p>
+            )}
+            <button className="btn btn-brass btn-block" style={{ height: '56px', fontSize: '15.5px' }} onClick={handlePinSubmit}>
               Unlock gallery
             </button>
           </div>
-          {pinError && (
-            <p style={{ color: 'var(--rust)', fontSize: 13, marginTop: 14 }}>{pinError}</p>
-          )}
         </div>
-      </>
+      </main>
     );
   }
 

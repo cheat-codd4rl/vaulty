@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { processImageFile } from '@/lib/fileProcessing';
 import { createEvent } from '@/lib/store';
 import { useToast } from './Toast';
@@ -14,9 +14,37 @@ export default function NewEventModal({ onClose, onCreated }) {
   const [photographerName, setPhotographerName] = useState('');
   const [coverData, setCoverData] = useState(null);
   const [coverSet, setCoverSet] = useState(false);
+  
+  // Host Profile Auth state
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  
+  // Registration fields
+  const [hostName, setHostName] = useState('');
+  const [hostEmail, setHostEmail] = useState('');
   const [hostPassword, setHostPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [creating, setCreating] = useState(false);
+  
   const coverInput = useRef(null);
+
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/host/me');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated) {
+            setIsLoggedIn(true);
+          }
+        }
+      } catch (err) {
+        // ignore
+      }
+      setAuthLoading(false);
+    }
+    checkAuth();
+  }, []);
 
   const handleGeneratePassword = () => {
     const ADJECTIVES = ['brass', 'gold', 'swift', 'dark', 'wild', 'blue', 'neon', 'cool', 'fast', 'brave', 'silver', 'silent'];
@@ -54,22 +82,36 @@ export default function NewEventModal({ onClose, onCreated }) {
       showToast('Give the event a name');
       return;
     }
-    const event = await createEvent({
-      name: name.trim(),
-      date,
-      cover: coverData,
-      accessMode,
-      moderationMode,
-      photographerName: photographerName.trim(),
-      hostPassword: hostPassword || null,
-    });
-    showToast('Event created');
-    if (onCreated) onCreated(event);
+    if (!isLoggedIn && (!hostName.trim() || !hostEmail.trim() || hostPassword.length < 6)) {
+      showToast('Please fill out all Host details securely');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const event = await createEvent({
+        name: name.trim(),
+        date,
+        cover: coverData,
+        accessMode,
+        moderationMode,
+        photographerName: photographerName.trim(),
+        hostEmail: !isLoggedIn ? hostEmail.trim() : null,
+        hostName: !isLoggedIn ? hostName.trim() : null,
+        hostPassword: !isLoggedIn ? hostPassword : null,
+      });
+      showToast('Event created');
+      if (onCreated) onCreated(event);
+    } catch (err) {
+      showToast(err.message || 'Failed to create event');
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
+      <div className="modal" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
         <div className="modal-head">
           <h2>New event</h2>
           <button className="btn btn-ghost btn-icon" onClick={onClose} aria-label="Close">
@@ -89,7 +131,7 @@ export default function NewEventModal({ onClose, onCreated }) {
             />
           </div>
           <div className="field">
-            <label htmlFor="evDate">Date</label>
+            <label htmlFor="evDate">Date (optional)</label>
             <input type="date" id="evDate" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <div className="field">
@@ -168,41 +210,74 @@ export default function NewEventModal({ onClose, onCreated }) {
               onChange={(e) => setPhotographerName(e.target.value)}
             />
           </div>
-          <div className="field">
-            <label htmlFor="evHostPassword" style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Host Password</span>
-              <button 
-                type="button" 
-                onClick={handleGeneratePassword} 
-                style={{ background: 'none', border: 'none', color: 'var(--brass-soft)', cursor: 'pointer', fontSize: '12px', padding: 0 }}
-              >
-                Generate one for me
-              </button>
-            </label>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input
-                type={showPassword ? "text" : "password"}
-                id="evHostPassword"
-                placeholder="Set a password to recover access"
-                value={hostPassword}
-                onChange={(e) => setHostPassword(e.target.value)}
-                required
-                minLength={6}
-                style={{ flex: 1 }}
-              />
-              <button 
-                type="button" 
-                onClick={() => setShowPassword(!showPassword)}
-                className="btn btn-ghost"
-                style={{ padding: '0 12px', minWidth: 'auto' }}
-                aria-label="Toggle password visibility"
-              >
-                {showPassword ? 'Hide' : 'Show'}
-              </button>
+
+          {!authLoading && !isLoggedIn && (
+            <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--line)' }}>
+              <h3 style={{ fontSize: '16px', marginBottom: '16px' }}>Host Profile Setup</h3>
+              <p style={{ fontSize: '13px', color: 'var(--text-dim)', marginBottom: '16px' }}>
+                You are creating your first event. Please create a host profile to manage your events later.
+              </p>
+              
+              <div className="field">
+                <label htmlFor="hostName">Your Name</label>
+                <input
+                  type="text"
+                  id="hostName"
+                  placeholder="e.g. Sam"
+                  value={hostName}
+                  onChange={(e) => setHostName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="hostEmail">Email Address</label>
+                <input
+                  type="email"
+                  id="hostEmail"
+                  placeholder="name@example.com"
+                  value={hostEmail}
+                  onChange={(e) => setHostEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="evHostPassword" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Host Password</span>
+                  <button 
+                    type="button" 
+                    onClick={handleGeneratePassword} 
+                    style={{ background: 'none', border: 'none', color: 'var(--brass-soft)', cursor: 'pointer', fontSize: '12px', padding: 0 }}
+                  >
+                    Generate one for me
+                  </button>
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    id="evHostPassword"
+                    placeholder="Set a password to recover access"
+                    value={hostPassword}
+                    onChange={(e) => setHostPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    style={{ flex: 1 }}
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="btn btn-ghost"
+                    style={{ padding: '0 12px', minWidth: 'auto' }}
+                    aria-label="Toggle password visibility"
+                  >
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-          <button type="submit" className="btn btn-brass btn-block">
-            Create event
+          )}
+
+          <button type="submit" disabled={creating} className="btn btn-brass btn-block" style={{ marginTop: '24px' }}>
+            {creating ? 'Creating...' : 'Create event'}
           </button>
         </form>
       </div>

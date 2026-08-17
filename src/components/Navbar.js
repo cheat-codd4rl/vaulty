@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import ThemeToggle from '@/components/ThemeToggle';
+import HostProfileMenu from '@/components/HostProfileMenu';
 
 export default function Navbar() {
   return (
@@ -14,10 +14,7 @@ export default function Navbar() {
         </span>
       </Link>
       <div className="navlinks">
-        <ThemeToggle />
-        <Link href="/host" className="btn btn-ghost btn-sm">
-          Host dashboard
-        </Link>
+        <HostProfileMenu />
       </div>
     </div>
   );

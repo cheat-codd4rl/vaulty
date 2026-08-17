@@ -92,7 +92,9 @@ export async function createEvent(data) {
         moderationMode: data.moderationMode || 'auto',
         photographerName: data.photographerName || '',
         deviceToken: creatorToken,
-        host_password: data.hostPassword || null,
+        hostPassword: data.hostPassword || null,
+        hostEmail: data.hostEmail || null,
+        hostName: data.hostName || null,
       }),
     });
     if (!res.ok) {
@@ -149,7 +151,22 @@ export async function updateEvent(event) {
   }
 }
 
-export async function listHostEvents() {
+export async function listHostEvents(hostId) {
+  const db = await getDb();
+  if (db && hostId) {
+    const { collection, query, where, getDocs } = await firestoreModules();
+    const q = query(
+      collection(db, 'events'),
+      where('hostId', '==', hostId)
+    );
+    const snap = await getDocs(q);
+    const results = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return results.sort((a, b) => b.createdAt - a.createdAt);
+  }
+  return [];
+}
+
+export async function listLegacyEvents() {
   const db = await getDb();
   if (db) {
     const creatorToken = await getDeviceToken();
@@ -159,18 +176,11 @@ export async function listHostEvents() {
       where('creatorToken', '==', creatorToken)
     );
     const snap = await getDocs(q);
-    const results = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    // Sort in-memory so we don't require a Firebase composite index for where() + orderBy()
+    // Filter out events that already have a hostId
+    const results = snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter(e => !e.hostId);
     return results.sort((a, b) => b.createdAt - a.createdAt);
   }
-  // Fallback
-  const ids = JSON.parse(storeGet('hostEvents') || '[]');
-  const arr = [];
-  for (const id of ids) {
-    const e = await getEvent(id);
-    if (e) arr.push(e);
-  }
-  return arr;
+  return [];
 }
 
 /* ═══════════════════════════════════════════════

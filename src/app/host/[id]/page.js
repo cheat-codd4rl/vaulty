@@ -34,33 +34,41 @@ export default function HostEventPage({ params }) {
   const [copiedGuest, setCopiedGuest] = useState(false);
   const [copiedPro, setCopiedPro] = useState(false);
 
+  const [hostId, setHostId] = useState(null);
+
   const loadData = useCallback(async () => {
     try {
-      // 1. Check JWT session
-      const sessionRes = await fetch(`/api/events/${id}/host/session`);
-      const sessionData = await sessionRes.json();
-      
-      let isFallback = false;
       const ev = await getEvent(id);
-      
       if (!ev) {
         setLoaded(true);
         return;
       }
 
-      if (sessionData.valid) {
-        setIsJwtSession(true);
-      } else {
-        // 2. Check legacy fallback
+      // 1. Check Host Profile session
+      const sessionRes = await fetch('/api/host/me');
+      const sessionData = await sessionRes.json();
+      
+      let authorized = false;
+
+      if (sessionData.authenticated) {
+        setHostId(sessionData.hostId);
+        if (ev.hostId === sessionData.hostId) {
+          authorized = true;
+        }
+      }
+      
+      // 2. Check legacy fallback
+      if (!authorized) {
         const { getDeviceToken } = await import('@/lib/store');
         const token = await getDeviceToken();
-        if (ev.creatorToken === token) {
-          isFallback = true;
-        } else {
-          // Unauthorized, route to login
-          router.push('/host-login');
-          return;
+        if (ev.creatorToken === token && !ev.hostId) {
+          authorized = true;
         }
+      }
+
+      if (!authorized) {
+        router.push('/host-login');
+        return;
       }
 
       setEvent(ev);
@@ -68,10 +76,6 @@ export default function HostEventPage({ params }) {
       setUploads(ups);
       setLoaded(true);
 
-      // If fallback and no password set, show banner
-      if (isFallback && !ev.hostPasswordHash) {
-        setShowPasswordSetup(true);
-      }
     } catch (err) {
       console.error(err);
       setLoaded(true);
@@ -81,39 +85,6 @@ export default function HostEventPage({ params }) {
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  const handleSetPassword = async (e) => {
-    e.preventDefault();
-    if (!newPassword) return;
-    setSavingPassword(true);
-    try {
-      const { getDeviceToken } = await import('@/lib/store');
-      const token = await getDeviceToken();
-      const res = await fetch(`/api/events/${id}/host-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ new_password: newPassword, deviceToken: token })
-      });
-      if (res.ok) {
-        showToast('Password set successfully!');
-        setShowPasswordSetup(false);
-        // Force login with new password to get JWT
-        const loginRes = await fetch(`/api/events/${id}/host-login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password: newPassword })
-        });
-        if (loginRes.ok) {
-          setIsJwtSession(true);
-        }
-      } else {
-        showToast('Failed to set password');
-      }
-    } catch (err) {
-      showToast('Error setting password');
-    }
-    setSavingPassword(false);
-  };
 
   const pending = uploads.filter((u) => u.status === 'pending');
   const approved = uploads.filter((u) => u.status === 'approved');
@@ -233,7 +204,19 @@ export default function HostEventPage({ params }) {
       <>
         <Navbar />
         <div className="wrap section">
-          <p style={{ color: 'var(--text-dim)' }}>Loading…</p>
+          <div className="event-header">
+            <div className="skeleton" style={{ width: '80px', height: '16px', marginBottom: '16px' }}></div>
+            <div className="skeleton" style={{ width: '240px', height: '40px', marginBottom: '8px' }}></div>
+            <div className="skeleton" style={{ width: '160px', height: '20px', marginBottom: '24px' }}></div>
+            <div className="stat-row">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="stat skeleton" style={{ height: '70px', borderRadius: '12px' }}></div>
+              ))}
+            </div>
+          </div>
+          <div style={{ marginTop: '32px' }}>
+             <div className="skeleton" style={{ width: '100%', height: '200px', borderRadius: '16px' }}></div>
+          </div>
         </div>
       </>
     );
@@ -372,7 +355,7 @@ export default function HostEventPage({ params }) {
               onClick={toggleAccess}
             ></div>
           </div>
-          <div className="switch-row">
+          <div className="switch-row" style={{ marginBottom: '32px' }}>
             <div className="lbl">
               <b>Require approval</b>
               <span>New guest uploads wait in a review queue before they&apos;re visible.</span>
@@ -381,6 +364,32 @@ export default function HostEventPage({ params }) {
               className={`switch ${event.moderationMode === 'approval' ? 'on' : ''}`}
               onClick={toggleMod}
             ></div>
+          </div>
+          <div style={{ padding: '24px', background: 'var(--ink-2)', borderRadius: '16px', border: '1px solid var(--line-strong)' }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', color: 'var(--rust)' }}>Danger Zone</h3>
+            <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: 'var(--text-dim)' }}>
+              Permanently delete this event, all photos, and its Google Drive folder. This cannot be undone.
+            </p>
+            <button 
+              className="btn btn-danger" 
+              onClick={async () => {
+                if (!confirm('Are you absolutely sure you want to permanently delete this event?')) return;
+                try {
+                  const res = await fetch(`/api/events/${id}/delete`, { method: 'POST' });
+                  if (res.ok) {
+                    showToast('Event deleted');
+                    router.push('/host');
+                  } else {
+                    const data = await res.json();
+                    showToast(data.error || 'Failed to delete event');
+                  }
+                } catch (err) {
+                  showToast('Failed to delete event');
+                }
+              }}
+            >
+              Delete Event
+            </button>
           </div>
         </div>
       </div>
@@ -398,48 +407,16 @@ export default function HostEventPage({ params }) {
         </div>
       </div>
 
-      {/* Review queue */}
-      {pending.length > 0 && (
-        <div className="wrap section" style={{ paddingTop: 0 }}>
-          <div className="section-head">
-            <div>
-              <h2>Review queue</h2>
-              <p>Nothing here goes live until you approve it.</p>
-            </div>
-          </div>
-          <div className="review-list">
-            {pending.map((u) => (
-              <div className="review-item" key={u.id}>
-                <div className="rthumb">
-                  <img src={u.thumbnail || PLACEHOLDER_GENERIC} alt="" />
-                </div>
-                <div className="rmeta">
-                  {u.filename}
-                  <br />
-                  {u.uploaderType === 'photographer' ? 'Photographer' : 'Guest'} · {fmtBytes(u.size)}
-                </div>
-                <div className="ractions">
-                  <button className="btn btn-sm" onClick={() => handleApprove(u.id)}>
-                    Approve
-                  </button>
-                  <button className="btn btn-sm btn-danger" onClick={() => handleReject(u.id)}>
-                    Reject
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Gallery */}
       <div className="wrap section" style={{ paddingTop: 0 }}>
         <Gallery
+          eventId={id}
           uploads={uploads}
           isHost={true}
           showProBadge={true}
           onDelete={handleDelete}
           onDownload={handleDownload}
+          onRefresh={loadData}
         />
       </div>
 
