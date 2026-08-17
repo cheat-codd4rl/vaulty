@@ -13,7 +13,7 @@ export default function Navbar() {
       </Link>
       <div className="navlinks">
         <Link href="/host" className="btn btn-ghost btn-sm">
-          Host dashboard
+          Create event
         </Link>
       </div>
     </div>

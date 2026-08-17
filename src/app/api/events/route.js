@@ -30,6 +30,10 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    if (!host_password || host_password.length < 6) {
+      return NextResponse.json({ error: 'Host password must be at least 6 characters long' }, { status: 400 });
+    }
+
     // Generate IDs
     const id = 'evt_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     const collaboratorCode = Math.random().toString(36).slice(2, 10);

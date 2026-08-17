@@ -15,7 +15,18 @@ export default function NewEventModal({ onClose, onCreated }) {
   const [coverData, setCoverData] = useState(null);
   const [coverSet, setCoverSet] = useState(false);
   const [hostPassword, setHostPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const coverInput = useRef(null);
+
+  const handleGeneratePassword = () => {
+    const ADJECTIVES = ['brass', 'gold', 'swift', 'dark', 'wild', 'blue', 'neon', 'cool', 'fast', 'brave', 'silver', 'silent'];
+    const NOUNS = ['otter', 'tiger', 'vault', 'fox', 'bear', 'hawk', 'wolf', 'lion', 'moon', 'star', 'river', 'forest'];
+    const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+    const noun = NOUNS[Math.floor(Math.random() * NOUNS.length)];
+    const num = Math.floor(Math.random() * 90) + 10;
+    setHostPassword(`${adj}-${noun}-${num}`);
+    setShowPassword(true);
+  };
 
   const handleCover = async (e) => {
     const f = e.target.files[0];
@@ -158,16 +169,36 @@ export default function NewEventModal({ onClose, onCreated }) {
             />
           </div>
           <div className="field">
-            <label htmlFor="evHostPassword">Host Password (Optional)</label>
-            <input
-              type="password"
-              id="evHostPassword"
-              placeholder="Set a password to recover access"
-              value={hostPassword}
-              onChange={(e) => setHostPassword(e.target.value)}
-            />
-            <div className="hint">
-              If left blank, you won&apos;t be able to recover host access on another device.
+            <label htmlFor="evHostPassword" style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>Host Password</span>
+              <button 
+                type="button" 
+                onClick={handleGeneratePassword} 
+                style={{ background: 'none', border: 'none', color: 'var(--brass-soft)', cursor: 'pointer', fontSize: '12px', padding: 0 }}
+              >
+                Generate one for me
+              </button>
+            </label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                id="evHostPassword"
+                placeholder="Set a password to recover access"
+                value={hostPassword}
+                onChange={(e) => setHostPassword(e.target.value)}
+                required
+                minLength={6}
+                style={{ flex: 1 }}
+              />
+              <button 
+                type="button" 
+                onClick={() => setShowPassword(!showPassword)}
+                className="btn btn-ghost"
+                style={{ padding: '0 12px', minWidth: 'auto' }}
+                aria-label="Toggle password visibility"
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
             </div>
           </div>
           <button type="submit" className="btn btn-brass btn-block">
