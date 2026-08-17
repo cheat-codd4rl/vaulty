@@ -36,10 +36,11 @@ export function getAdminFirestore() {
         // File path (local dev with service account)
         const fs = require('fs');
         const serviceAccount = JSON.parse(fs.readFileSync(creds, 'utf8'));
-      initializeApp({
-        credential: cert(serviceAccount),
-        projectId,
-      });
+        initializeApp({
+          credential: cert(serviceAccount),
+          projectId,
+        });
+      }
     } else {
       // Application Default Credentials (running on GCP)
       initializeApp({
