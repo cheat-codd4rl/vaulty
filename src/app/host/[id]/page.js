@@ -31,6 +31,8 @@ export default function HostEventPage({ params }) {
   const [showPasswordSetup, setShowPasswordSetup] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
+  const [copiedGuest, setCopiedGuest] = useState(false);
+  const [copiedPro, setCopiedPro] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -124,9 +126,16 @@ export default function HostEventPage({ params }) {
       ? window.location.origin + '/e/' + id + '/pro/' + event.collaboratorCode
       : '';
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard?.writeText(text).catch(() => {});
-    showToast('Link copied');
+  const copyGuestLink = () => {
+    navigator.clipboard?.writeText(guestLink).catch(() => {});
+    setCopiedGuest(true);
+    setTimeout(() => setCopiedGuest(false), 2000);
+  };
+
+  const copyProLink = () => {
+    navigator.clipboard?.writeText(proLink).catch(() => {});
+    setCopiedPro(true);
+    setTimeout(() => setCopiedPro(false), 2000);
   };
 
   const toggleAccess = async () => {
@@ -251,22 +260,28 @@ export default function HostEventPage({ params }) {
 
       {showPasswordSetup && (
         <div className="wrap section" style={{ paddingBottom: 0 }}>
-          <div className="card" style={{ background: '#FFF3CD', color: '#856404', borderColor: '#FFEEBA' }}>
-            <h3 style={{ marginTop: 0 }}>Protect Your Event</h3>
-            <p style={{ marginTop: 0 }}>
+          <div className="warn-card">
+            <div className="warn-card-header">
+              <span className="warn-icon">⚠️</span>
+              <h3>Protect your event</h3>
+            </div>
+            <p>
               You haven&apos;t set a host password for this event. If you clear your browser data or switch devices, you will lose host access permanently.
             </p>
-            <form onSubmit={handleSetPassword} style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-              <input
-                type="password"
-                placeholder="Set a password..."
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-                style={{ flex: 1, padding: '8px', border: '1px solid #CCC', borderRadius: '4px' }}
-              />
-              <button type="submit" className="btn btn-sm" disabled={savingPassword}>
-                {savingPassword ? 'Saving...' : 'Set Password'}
+            <form onSubmit={handleSetPassword} className="warn-card-form">
+              <div className="warn-input-group">
+                <label htmlFor="host-password">Host password</label>
+                <input
+                  id="host-password"
+                  type="password"
+                  placeholder="Set a secure password..."
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <button type="submit" className="btn btn-brass" disabled={savingPassword}>
+                {savingPassword ? 'Saving...' : 'Set password'}
               </button>
             </form>
           </div>
@@ -306,31 +321,33 @@ export default function HostEventPage({ params }) {
         <div className="share-panel">
           <div className="qr-seal">
             <div className="qr-inner">
-              <QRCodeSVG value={guestLink} size={104} bgColor="#F3EFE4" fgColor="#14171C" />
+              <QRCodeSVG value={guestLink} size={100} bgColor="#F3EFE4" fgColor="#14171C" />
             </div>
+            <div className="qr-label">Scan to join</div>
           </div>
-          <div>
-            <div className="field" style={{ marginBottom: 12 }}>
-              <label>Guest link</label>
+          <div className="share-details">
+            <div className="field">
+              <label htmlFor="guest-link">Guest link</label>
               <div className="share-row">
-                <input type="text" readOnly value={guestLink} />
-                <button className="btn btn-sm" onClick={() => copyToClipboard(guestLink)}>
-                  Copy
+                <input id="guest-link" type="text" readOnly value={guestLink} onClick={(e) => e.target.select()} />
+                <button className={`btn btn-sm ${copiedGuest ? 'copied' : ''}`} onClick={copyGuestLink}>
+                  {copiedGuest ? '✓ Copied' : 'Copy'}
                 </button>
               </div>
             </div>
-            <div className="field" style={{ marginBottom: 0 }}>
-              <label>Collaborator link (photographer, no PIN needed)</label>
+            <div className="field">
+              <label htmlFor="pro-link">Collaborator link <span>(photographer, no PIN)</span></label>
               <div className="share-row">
-                <input type="text" readOnly value={proLink} />
-                <button className="btn btn-sm" onClick={() => copyToClipboard(proLink)}>
-                  Copy
+                <input id="pro-link" type="text" readOnly value={proLink} onClick={(e) => e.target.select()} />
+                <button className={`btn btn-sm ${copiedPro ? 'copied' : ''}`} onClick={copyProLink}>
+                  {copiedPro ? '✓ Copied' : 'Copy'}
                 </button>
               </div>
             </div>
             {event.accessMode === 'pin' && (
-              <div style={{ marginTop: 12 }}>
-                Guest PIN: <span className="pin-badge">{event.pin}</span>
+              <div className="pin-field">
+                <label>Guest PIN</label>
+                <div className="pin-badge">{event.pin.split('').join(' ')}</div>
               </div>
             )}
           </div>
