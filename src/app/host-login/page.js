@@ -50,7 +50,7 @@ export default function HostLogin() {
       <div style={{ width: '100%', maxWidth: '380px', display: 'flex', flexDirection: 'column', gap: '32px', padding: '48px 0' }}>
         
         <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <img src="/vaulty-icon.png" alt="Vaulty icon" style={{ width: '64px', height: '64px', margin: '0 auto 16px', borderRadius: '14px', objectFit: 'cover' }} />
+          <img src="/vaulty-icon.svg" alt="Vaulty icon" style={{ width: '64px', height: '64px', margin: '0 auto 16px', borderRadius: '14px', objectFit: 'cover' }} />
           <h1 style={{ fontSize: '32px', letterSpacing: '-0.02em', marginBottom: '8px' }}>Host Login</h1>
           <p style={{ fontSize: '15px', color: 'var(--text-dim)', margin: 0 }}>
             Log in to manage your event.
