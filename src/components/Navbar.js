@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import ThemeToggle from '@/components/ThemeToggle';
 
 export default function Navbar() {
   return (
@@ -12,8 +13,9 @@ export default function Navbar() {
         </span>
       </Link>
       <div className="navlinks">
+        <ThemeToggle />
         <Link href="/host" className="btn btn-ghost btn-sm">
-          Create event
+          Host dashboard
         </Link>
       </div>
     </div>

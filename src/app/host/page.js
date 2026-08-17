@@ -29,7 +29,27 @@ export default function HostDashboard() {
     router.push('/host/' + event.id);
   };
 
-  if (!loaded) return <><Navbar /><div className="wrap section"><p style={{color:'var(--text-dim)'}}>Loading…</p></div></>;
+  if (!loaded) {
+    return (
+      <>
+        <Navbar />
+        <div className="wrap section">
+          <div className="section-head">
+            <div>
+              <div className="skeleton" style={{ width: '140px', height: '28px', marginBottom: '8px' }}></div>
+              <div className="skeleton" style={{ width: '220px', height: '16px' }}></div>
+            </div>
+            <div className="skeleton" style={{ width: '110px', height: '40px', borderRadius: '20px' }}></div>
+          </div>
+          <div className="vault-grid">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="vault-card skeleton" style={{ height: '220px', border: 'none' }}></div>
+            ))}
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

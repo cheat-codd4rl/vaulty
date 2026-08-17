@@ -46,12 +46,20 @@ export default function HostLogin() {
   };
 
   return (
-    <div className="container" style={{ maxWidth: '400px', marginTop: '10vh' }}>
-      <div className="card" style={{ padding: '2rem' }}>
-        <h1 style={{ textAlign: 'center', marginBottom: '1.5rem' }}>Host Login</h1>
-        <form onSubmit={handleLogin}>
-          <div className="field">
-            <label htmlFor="eventCode">Event Code</label>
+    <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 24px', background: 'var(--ink)' }}>
+      <div style={{ width: '100%', maxWidth: '380px', display: 'flex', flexDirection: 'column', gap: '32px', padding: '48px 0' }}>
+        
+        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <img src="/vaulty-icon.png" alt="Vaulty icon" style={{ width: '64px', height: '64px', margin: '0 auto 16px', borderRadius: '14px', objectFit: 'cover' }} />
+          <h1 style={{ fontSize: '32px', letterSpacing: '-0.02em', marginBottom: '8px' }}>Host Login</h1>
+          <p style={{ fontSize: '15px', color: 'var(--text-dim)', margin: 0 }}>
+            Log in to manage your event.
+          </p>
+        </div>
+
+        <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label htmlFor="eventCode" style={{ textAlign: 'center' }}>Event Code</label>
             <input
               type="text"
               id="eventCode"
@@ -59,10 +67,11 @@ export default function HostLogin() {
               value={eventCode}
               onChange={(e) => setEventCode(e.target.value)}
               required
+              style={{ textAlign: 'center' }}
             />
           </div>
-          <div className="field">
-            <label htmlFor="password">Host Password</label>
+          <div className="field" style={{ marginBottom: '8px' }}>
+            <label htmlFor="password" style={{ textAlign: 'center' }}>Host Password</label>
             <input
               type="password"
               id="password"
@@ -70,13 +79,17 @@ export default function HostLogin() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              style={{ textAlign: 'center' }}
             />
           </div>
-          <button type="submit" className="btn btn-brass btn-block" disabled={loading}>
+          <button type="submit" className="btn btn-brass btn-block" style={{ height: '56px', fontSize: '15.5px' }} disabled={loading}>
             {loading ? 'Logging in...' : 'Log In'}
+          </button>
+          <button type="button" onClick={() => router.push('/')} style={{ background: 'none', border: 'none', color: 'var(--text-faint)', fontSize: '13px', cursor: 'pointer', marginTop: '6px' }}>
+            ← Back home
           </button>
         </form>
       </div>
-    </div>
+    </main>
   );
 }
