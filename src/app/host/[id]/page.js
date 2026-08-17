@@ -12,8 +12,6 @@ import {
   getEvent,
   updateEvent,
   listUploads,
-  updateUploadRecord,
-  deleteUploadRecord,
   deleteSessionFile,
   getSessionFile,
 } from '@/lib/store';
@@ -127,29 +125,49 @@ export default function HostEventPage({ params }) {
   };
 
   const handleApprove = async (uid) => {
-    const u = uploads.find((x) => x.id === uid);
-    if (u) {
-      u.status = 'approved';
-      await updateUploadRecord(u);
+    const res = await fetch(`/api/events/${id}/uploads/moderate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uploadIds: [uid], action: 'approve' })
+    });
+    if (res.ok) {
       showToast('Approved');
       loadData();
+    } else {
+      showToast('Failed to approve');
     }
   };
 
   const handleReject = async (uid) => {
     if (!confirm('Reject and remove this photo?')) return;
-    await deleteUploadRecord(id, uid);
-    deleteSessionFile(uid);
-    showToast('Rejected');
-    loadData();
+    const res = await fetch(`/api/events/${id}/uploads/moderate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uploadIds: [uid], action: 'reject' })
+    });
+    if (res.ok) {
+      deleteSessionFile(uid);
+      showToast('Rejected');
+      loadData();
+    } else {
+      showToast('Failed to reject');
+    }
   };
 
   const handleDelete = async (uid) => {
     if (!confirm('Remove this photo from the gallery?')) return;
-    await deleteUploadRecord(id, uid);
-    deleteSessionFile(uid);
-    showToast('Removed');
-    loadData();
+    const res = await fetch(`/api/events/${id}/uploads/moderate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uploadIds: [uid], action: 'delete' })
+    });
+    if (res.ok) {
+      deleteSessionFile(uid);
+      showToast('Removed');
+      loadData();
+    } else {
+      showToast('Failed to remove');
+    }
   };
 
   const handleDownload = async (uploadsToDownload) => {
@@ -221,14 +239,14 @@ export default function HostEventPage({ params }) {
       </>
     );
 
-  if (!event)
+  if (!event || event.status === 'deleting')
     return (
       <>
         <Navbar />
         <div className="wrap section">
           <div className="empty">
-            <h3>Event not found</h3>
-            <p>It may have been created in a different browser.</p>
+            <h3>{event ? 'Event is being deleted' : 'Event not found'}</h3>
+            <p>{event ? 'This event and its photos are currently being permanently removed.' : 'It may have been created in a different browser.'}</p>
             <button className="btn btn-brass" onClick={() => router.push('/host')}>
               Back to dashboard
             </button>
@@ -365,9 +383,9 @@ export default function HostEventPage({ params }) {
               onClick={toggleMod}
             ></div>
           </div>
-          <div style={{ padding: '24px', background: 'var(--ink-2)', borderRadius: '16px', border: '1px solid var(--line-strong)' }}>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', color: 'var(--rust)' }}>Danger Zone</h3>
-            <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: 'var(--text-dim)' }}>
+          <div className="card-danger" style={{ marginBottom: 0 }}>
+            <h3>Danger Zone</h3>
+            <p>
               Permanently delete this event, all photos, and its Google Drive folder. This cannot be undone.
             </p>
             <button 

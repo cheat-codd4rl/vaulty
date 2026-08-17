@@ -40,44 +40,17 @@ export async function POST(request, { params }) {
     if (event.hostId !== hostId) {
       return NextResponse.json({ error: 'Unauthorized to delete this event' }, { status: 403 });
     }
-
-    // 3. Clean up Firestore (uploads subcollection)
-    const uploadsSnapshot = await eventRef.collection('uploads').get();
-    
-    // Batch deletes for uploads (500 limit per batch in Firestore)
-    let batch = adminDb.batch();
-    let count = 0;
-    
-    for (const doc of uploadsSnapshot.docs) {
-      batch.delete(doc.ref);
-      count++;
-      
-      if (count === 490) { // Keep under 500
-        await batch.commit();
-        batch = adminDb.batch();
-        count = 0;
+    try {
+      await processEventDeletion(id);
+      return NextResponse.json({ success: true });
+    } catch (err) {
+      if (err.message === 'Deletion is already in progress') {
+        return NextResponse.json({ error: 'Deletion is already in progress' }, { status: 429 });
       }
+      return NextResponse.json({ error: 'Failed to completely delete event. Please retry.' }, { status: 500 });
     }
-    
-    if (count > 0) {
-      await batch.commit();
-    }
-
-    // 4. Clean up Drive folder
-    if (event.driveFolderId) {
-      try {
-        await deleteFromDrive(event.driveFolderId);
-      } catch (err) {
-        console.error('Failed to delete Drive folder, skipping:', err);
-      }
-    }
-
-    // 5. Delete Event document
-    await eventRef.delete();
-
-    return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('Delete event failed:', err);
-    return NextResponse.json({ error: 'Failed to delete event' }, { status: 500 });
+    console.error('Delete event request failed:', err);
+    return NextResponse.json({ error: 'Failed to process deletion' }, { status: 500 });
   }
 }

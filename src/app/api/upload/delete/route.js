@@ -14,12 +14,13 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { deleteFromDrive } from '@/lib/drive';
+import crypto from 'crypto';
 
 export async function POST(request) {
   try {
-    const { eventId, uploadId, deviceToken } = await request.json();
-    if (!eventId || !uploadId || !deviceToken) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    const { eventId, uploadId, deleteToken } = await request.json();
+    if (!eventId || !uploadId || !deleteToken) {
+      return NextResponse.json({ error: 'Missing required fields or token' }, { status: 400 });
     }
 
     const uploadRef = adminDb.collection('events').doc(eventId).collection('uploads').doc(uploadId);
@@ -29,26 +30,41 @@ export async function POST(request) {
     }
     const upload = uploadSnap.data();
 
-    // SECURITY TODO: same caveat as route.js — deviceToken should come from
-    // a verified Firebase ID token (request.auth after admin.auth()
-    // .verifyIdToken(...)), not a client-supplied field, once Anonymous
-    // Auth is wired in. Until then this matches the prototype's model.
-    let authorized = upload.deviceToken === deviceToken;
+    const deleteSecurityRef = uploadRef.collection('security').doc('deletion');
+    
+    const eventSnap = await adminDb.collection('events').doc(eventId).get();
+    if (!eventSnap.exists) {
+      return NextResponse.json({ error: 'Event not found' }, { status: 404 });
+    }
+    const eventData = eventSnap.data();
 
-    if (!authorized) {
-      // Not the uploader — check whether this is the event's host instead.
-      const eventSnap = await adminDb.collection('events').doc(eventId).get();
-      authorized = eventSnap.exists && eventSnap.data().creatorToken === deviceToken;
+    if (eventData.status === 'deleting') {
+      return NextResponse.json({ error: 'Event is being deleted' }, { status: 403 });
     }
 
+    // Verify token and mark consumed atomically
+    const authorized = await adminDb.runTransaction(async (transaction) => {
+      const securityDoc = await transaction.get(deleteSecurityRef);
+      if (!securityDoc.exists) return false;
+      const data = securityDoc.data();
+      
+      if (data.consumed) return false;
+      if (Date.now() > data.expiresAt) return false;
+      
+      const hash = crypto.createHash('sha256').update(deleteToken).digest('hex');
+      if (hash !== data.deleteTokenHash) return false;
+      
+      transaction.update(deleteSecurityRef, { consumed: true });
+      return true;
+    });
+
+    // Host deletions must go through the authenticated /api/events/[id]/uploads/moderate route instead
     if (!authorized) {
-      return NextResponse.json({ error: 'Not authorized to delete this upload' }, { status: 403 });
+      return NextResponse.json({ error: 'Not authorized to delete this upload or link expired' }, { status: 403 });
     }
 
     if (upload.driveFileId) {
-      // Don't fail the whole delete if Drive cleanup fails — an orphaned
-      // Drive file is recoverable manually; a photo that won't delete from
-      // the gallery is a worse user experience. Log it so you can clean up.
+      // Don't fail the whole delete if Drive cleanup fails
       await deleteFromDrive(upload.driveFileId).catch((e) => {
         console.error(`Drive delete failed for file ${upload.driveFileId}:`, e.message);
       });

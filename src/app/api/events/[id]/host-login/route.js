@@ -83,6 +83,10 @@ export async function POST(request, { params }) {
 
     const event = eventDoc.data();
 
+    if (event.status === 'deleting') {
+      return NextResponse.json({ error: 'event_deleted' }, { status: 403 });
+    }
+
     if (!event.hostPasswordHash) {
       return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 });
     }

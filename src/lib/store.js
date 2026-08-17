@@ -143,9 +143,15 @@ export async function getEvent(id) {
 export async function updateEvent(event) {
   const db = await getDb();
   if (db) {
-    const { doc, updateDoc } = await firestoreModules();
     const { id, ...data } = event;
-    await updateDoc(doc(db, 'events', id), data);
+    const res = await fetch(`/api/events/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      throw new Error('Failed to update event');
+    }
   } else {
     storeSet('event:' + event.id, JSON.stringify(event));
   }
@@ -188,16 +194,11 @@ export async function listLegacyEvents() {
    ═══════════════════════════════════════════════ */
 
 export async function addUploadRecord(u) {
-  const db = await getDb();
-  if (db) {
-    const { doc, setDoc } = await firestoreModules();
-    await setDoc(doc(db, 'events', u.eventId, 'uploads', u.id), u);
-  } else {
-    storeSet(`upload:${u.eventId}:${u.id}`, JSON.stringify(u));
-    const mine = JSON.parse(storeGet('myUploads:' + u.eventId) || '[]');
-    mine.push(u.id);
-    storeSet('myUploads:' + u.eventId, JSON.stringify(mine));
-  }
+  // Only called in local dev fallback mode
+  storeSet(`upload:${u.eventId}:${u.id}`, JSON.stringify(u));
+  const mine = JSON.parse(storeGet('myUploads:' + u.eventId) || '[]');
+  mine.push(u.id);
+  storeSet('myUploads:' + u.eventId, JSON.stringify(mine));
 }
 
 export async function listUploads(eventId) {
@@ -222,26 +223,16 @@ export async function listUploads(eventId) {
   return arr;
 }
 
-export async function updateUploadRecord(u) {
-  const db = await getDb();
-  if (db) {
-    const { doc, updateDoc } = await firestoreModules();
-    const { id, eventId, ...data } = u;
-    await updateDoc(doc(db, 'events', eventId, 'uploads', id), data);
-  } else {
-    storeSet(`upload:${u.eventId}:${u.id}`, JSON.stringify(u));
-  }
-}
+
 
 export async function deleteUploadRecord(eventId, id) {
   const db = await getDb();
   if (db) {
-    // Delete via server route — handles Drive file deletion + ownership check
-    const deviceToken = await getDeviceToken();
+    const deleteToken = storeGet(`deleteToken:${id}`);
     const res = await fetch('/api/upload/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ eventId, uploadId: id, deviceToken }),
+      body: JSON.stringify({ eventId, uploadId: id, deleteToken }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Delete failed' }));
@@ -253,19 +244,18 @@ export async function deleteUploadRecord(eventId, id) {
 }
 
 export async function getMyUploadIds(eventId) {
-  const db = await getDb();
-  if (db) {
-    // In Firestore mode, filter by deviceToken
-    const deviceToken = await getDeviceToken();
-    const { collection, query, where, getDocs } = await firestoreModules();
-    const q = query(
-      collection(db, 'events', eventId, 'uploads'),
-      where('deviceToken', '==', deviceToken)
-    );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => d.id);
-  }
   return JSON.parse(storeGet('myUploads:' + eventId) || '[]');
+}
+
+export function saveMyUploadId(eventId, uploadId, deleteToken = null) {
+  const mine = JSON.parse(storeGet('myUploads:' + eventId) || '[]');
+  if (!mine.includes(uploadId)) {
+    mine.push(uploadId);
+    storeSet('myUploads:' + eventId, JSON.stringify(mine));
+  }
+  if (deleteToken) {
+    storeSet(`deleteToken:${uploadId}`, deleteToken);
+  }
 }
 
 /* ═══════════════════════════════════════════════

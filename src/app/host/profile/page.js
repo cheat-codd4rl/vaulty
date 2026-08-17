@@ -90,8 +90,8 @@ export default function HostProfile() {
         </div>
         
         <div style={{ maxWidth: 520 }}>
-          <div style={{ padding: '24px', background: 'var(--ink-2)', borderRadius: '16px', border: '1px solid var(--line)', marginBottom: '32px' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '16px' }}>Account Details</h3>
+          <div className="card">
+            <h3>Account Details</h3>
             <div className="field">
               <label>Name</label>
               <input type="text" value={host.name} disabled readOnly />
@@ -102,8 +102,8 @@ export default function HostProfile() {
             </div>
           </div>
 
-          <div style={{ padding: '24px', background: 'var(--ink-2)', borderRadius: '16px', border: '1px solid var(--line)' }}>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '16px' }}>Change Password</h3>
+          <div className="card" style={{ marginBottom: 0 }}>
+            <h3>Change Password</h3>
             <form onSubmit={handleChangePassword}>
               <div className="field">
                 <label htmlFor="currentPassword">Current Password</label>

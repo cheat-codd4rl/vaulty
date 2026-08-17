@@ -111,7 +111,7 @@ export default function NewEventModal({ onClose, onCreated }) {
 
   return (
     <div className="modal-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" style={{ maxHeight: '90vh', overflowY: 'auto' }}>
+      <div className="modal">
         <div className="modal-head">
           <h2>New event</h2>
           <button className="btn btn-ghost btn-icon" onClick={onClose} aria-label="Close">
@@ -241,17 +241,8 @@ export default function NewEventModal({ onClose, onCreated }) {
                 />
               </div>
               <div className="field">
-                <label htmlFor="evHostPassword" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Host Password</span>
-                  <button 
-                    type="button" 
-                    onClick={handleGeneratePassword} 
-                    style={{ background: 'none', border: 'none', color: 'var(--brass-soft)', cursor: 'pointer', fontSize: '12px', padding: 0 }}
-                  >
-                    Generate one for me
-                  </button>
-                </label>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <label htmlFor="evHostPassword">Host Password</label>
+                <div style={{ position: 'relative' }}>
                   <input
                     type={showPassword ? "text" : "password"}
                     id="evHostPassword"
@@ -260,16 +251,25 @@ export default function NewEventModal({ onClose, onCreated }) {
                     onChange={(e) => setHostPassword(e.target.value)}
                     required
                     minLength={6}
-                    style={{ flex: 1 }}
+                    style={{ paddingRight: '64px' }}
                   />
                   <button 
                     type="button" 
                     onClick={() => setShowPassword(!showPassword)}
                     className="btn btn-ghost"
-                    style={{ padding: '0 12px', minWidth: 'auto' }}
+                    style={{ position: 'absolute', right: '4px', top: '4px', bottom: '4px', padding: '0 12px', minHeight: '0', height: 'auto', border: 'none', zIndex: 2 }}
                     aria-label="Toggle password visibility"
                   >
                     {showPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
+                <div style={{ textAlign: 'right', marginTop: '8px' }}>
+                  <button 
+                    type="button" 
+                    onClick={handleGeneratePassword} 
+                    style={{ background: 'none', border: 'none', color: 'var(--brass-soft)', cursor: 'pointer', fontSize: '13px', padding: 0, fontWeight: 500 }}
+                  >
+                    Generate one for me
                   </button>
                 </div>
               </div>

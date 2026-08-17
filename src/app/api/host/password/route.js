@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
-import jwt from 'jsonwebtoken';
+import { verifyJwt } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'vaulty_fallback_secret_change_me_in_production';
 
 export async function POST(request) {
   try {
@@ -21,7 +19,7 @@ export async function POST(request) {
 
     let decoded;
     try {
-      decoded = jwt.verify(match[1], JWT_SECRET);
+      decoded = verifyJwt(match[1]);
     } catch (err) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }

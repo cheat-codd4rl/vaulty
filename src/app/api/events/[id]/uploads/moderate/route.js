@@ -37,51 +37,74 @@ export async function POST(request, { params }) {
     const eventRef = adminDb.collection('events').doc(id);
     const eventDoc = await eventRef.get();
     
-    if (!eventDoc.exists || eventDoc.data().hostId !== hostId) {
+    const eventData = eventDoc.data();
+    
+    if (!eventDoc.exists || eventData.hostId !== hostId) {
       // Also allow legacy creator fallback, but since bulk moderation is a pro feature 
       // of Host Profiles, we will just restrict to Host Profiles for security.
       // We will allow if they are the authenticated host.
-      if (eventDoc.data().hostId !== hostId) {
+      if (!eventData || eventData.hostId !== hostId) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
       }
     }
 
-    // 3. Process the batch (max 500 per transaction, but we will chunk just in case)
-    let successCount = 0;
+    if (eventData.status === 'deleting') {
+      return NextResponse.json({ error: 'Event is being deleted' }, { status: 403 });
+    }
+
+    // 3. Process the batch
+    const successful = [];
+    const failed = [];
     
     // We process sequentially or in chunks of 100 for safety, especially with Drive API limits
     const CHUNK_SIZE = 100;
     for (let i = 0; i < uploadIds.length; i += CHUNK_SIZE) {
       const chunk = uploadIds.slice(i, i + CHUNK_SIZE);
       const batch = adminDb.batch();
-      
+      const operations = []; // To track what we added to the batch
+
       for (const uploadId of chunk) {
         const uploadRef = eventRef.collection('uploads').doc(uploadId);
         
         if (action === 'approve') {
           batch.update(uploadRef, { status: 'approved' });
+          operations.push(uploadId);
         } else if (action === 'reject' || action === 'delete') {
-          // If deleting, we also need to get the fileId to delete from Drive
-          const uDoc = await uploadRef.get();
-          if (uDoc.exists) {
-            const data = uDoc.data();
-            if (data.fileId) {
-              try {
+          try {
+            const uDoc = await uploadRef.get();
+            if (uDoc.exists) {
+              const data = uDoc.data();
+              if (data.fileId) {
                 await deleteFromDrive(data.fileId);
-              } catch (e) {
-                console.error(`Failed to delete fileId ${data.fileId} from Drive:`, e);
               }
+              batch.delete(uploadRef);
+              operations.push(uploadId);
+            } else {
+              failed.push({ id: uploadId, error: 'Not found' });
             }
-            batch.delete(uploadRef);
+          } catch (e) {
+            console.error(`Failed processing ${uploadId}:`, e);
+            failed.push({ id: uploadId, error: e.message || 'Operation failed' });
           }
         }
       }
       
-      await batch.commit();
-      successCount += chunk.length;
+      if (operations.length > 0) {
+        try {
+          await batch.commit();
+          successful.push(...operations);
+        } catch (e) {
+          console.error('Batch commit failed:', e);
+          failed.push(...operations.map(id => ({ id, error: 'Batch commit failed' })));
+        }
+      }
     }
 
-    return NextResponse.json({ success: true, processed: successCount });
+    if (failed.length > 0) {
+      return NextResponse.json({ success: successful.length > 0, successful, failed }, { status: 207 });
+    }
+
+    return NextResponse.json({ success: true, processed: successful.length, successful });
   } catch (err) {
     console.error('Bulk moderation failed:', err);
     return NextResponse.json({ error: 'Failed to process action' }, { status: 500 });

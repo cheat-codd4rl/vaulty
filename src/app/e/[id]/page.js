@@ -124,14 +124,14 @@ export default function GuestPage({ params }) {
       </>
     );
 
-  if (!event)
+  if (!event || event.status === 'deleting')
     return (
       <>
         <Navbar />
         <div className="wrap section">
           <div className="empty">
-            <h3>This link doesn&apos;t lead anywhere</h3>
-            <p>Double-check the code or ask your host to resend it.</p>
+            <h3>{event ? 'Event is being deleted' : 'This link doesn\'t lead anywhere'}</h3>
+            <p>{event ? 'This event and its photos are currently being permanently removed.' : 'Double-check the code or ask your host to resend it.'}</p>
           </div>
         </div>
       </>
@@ -140,9 +140,9 @@ export default function GuestPage({ params }) {
   // PIN gate
   if (event.accessMode === 'pin' && !pinUnlocked) {
     return (
-      <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 24px', background: 'var(--ink)' }}>
+      <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 24px', background: 'var(--ink)' }}>
         <AbsoluteThemeToggle />
-        <div style={{ width: '100%', maxWidth: '380px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ width: '100%', maxWidth: '380px', display: 'flex', flexDirection: 'column', gap: '24px', margin: 'auto' }}>
           <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <img src="/vaulty-dark-128.svg" alt="Vaulty icon" className="logo-dark" style={{ width: '80px', height: '80px', margin: '0 auto 16px', borderRadius: '16px', objectFit: 'cover' }} />
             <img src="/vaulty-light-128.svg" alt="Vaulty icon" className="logo-light" style={{ width: '80px', height: '80px', margin: '0 auto 16px', borderRadius: '16px', objectFit: 'cover' }} />

@@ -87,21 +87,7 @@ export default function HostProfileMenu() {
       </button>
 
       {open && (
-        <div style={{
-          position: 'absolute',
-          top: '48px',
-          right: 0,
-          background: 'var(--ink-2)',
-          border: '1px solid var(--line-strong)',
-          borderRadius: '12px',
-          padding: '8px',
-          minWidth: '220px',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-          zIndex: 100,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '4px'
-        }}>
+        <div className="dropdown-menu">
           <div style={{ padding: '8px 12px 12px 12px', borderBottom: '1px solid var(--line-strong)', marginBottom: '4px' }}>
             <p style={{ margin: 0, fontWeight: 600, color: 'var(--text)' }}>{host.name}</p>
             <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-dim)' }}>{host.email}</p>

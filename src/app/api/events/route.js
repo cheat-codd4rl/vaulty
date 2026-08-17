@@ -17,9 +17,7 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { createEventFolder } from '@/lib/drive';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'vaulty_fallback_secret_change_me_in_production';
+import { signJwt, verifyJwt } from '@/lib/auth';
 
 export async function POST(request) {
   try {
@@ -43,7 +41,7 @@ export async function POST(request) {
     const match = cookieHeader.match(/vaulty_host_session=([^;]+)/);
     if (match) {
       try {
-        const decoded = jwt.verify(match[1], JWT_SECRET);
+        const decoded = verifyJwt(match[1]);
         hostId = decoded.hostId;
       } catch (err) {
         // invalid token
@@ -76,7 +74,7 @@ export async function POST(request) {
       });
 
       // Generate JWT for the new host
-      newHostToken = jwt.sign({ hostId, role: 'host' }, JWT_SECRET, { expiresIn: '7d' });
+      newHostToken = signJwt({ hostId, role: 'host' }, { expiresIn: '7d' });
       isNewHost = true;
     }
 
@@ -104,13 +102,23 @@ export async function POST(request) {
       moderationMode: moderationMode || 'auto',
       collaboratorCode,
       photographerName: photographerName || '',
-      creatorToken: deviceToken, // Kept for legacy linking if needed, but primary is hostId
       hostId, // The true owner of the event
       driveFolderId,
       createdAt: Date.now(),
     };
 
-    await adminDb.collection('events').doc(id).set(event);
+    const batch = adminDb.batch();
+    const eventRef = adminDb.collection('events').doc(id);
+    batch.set(eventRef, event);
+
+    const privateRef = eventRef.collection('security').doc('private');
+    batch.set(privateRef, {
+      creatorToken: deviceToken,
+      collaboratorCode,
+      pin
+    });
+
+    await batch.commit();
 
     const res = NextResponse.json({ ...event, isNewHost });
 

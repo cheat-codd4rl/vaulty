@@ -27,6 +27,13 @@ export async function GET(request, { params }) {
         return NextResponse.json({ valid: false }, { status: 401 });
       }
 
+      // Check if event is deleting (using dynamic import for adminDb to avoid top-level import issue if any, but it's safe to just import it)
+      const { adminDb } = require('@/lib/firebaseAdmin');
+      const eventDoc = await adminDb.collection('events').doc(id).get();
+      if (!eventDoc.exists || eventDoc.data().status === 'deleting') {
+         return NextResponse.json({ valid: false, error: 'event_deleted' }, { status: 403 });
+      }
+
       // Check if we need to refresh (if < 24h remaining)
       const now = Math.floor(Date.now() / 1000);
       const timeRemaining = decoded.exp - now;

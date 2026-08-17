@@ -102,7 +102,12 @@ export default function Gallery({
       });
 
       if (res.ok) {
-        showToast(`Successfully processed ${selectedIds.length} items`);
+        const data = await res.json();
+        if (res.status === 207) {
+          showToast(`Processed ${data.successful?.length || 0} items. Failed: ${data.failed?.length || 0}`);
+        } else {
+          showToast(`Successfully processed ${selectedIds.length} items`);
+        }
         setSelectedIds([]);
         setIsSelecting(false);
         if (onRefresh) onRefresh();
@@ -210,21 +215,7 @@ export default function Gallery({
       )}
 
       {isSelecting && selectedIds.length > 0 && (
-        <div style={{
-          position: 'fixed',
-          bottom: '24px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'var(--ink-2)',
-          border: '1px solid var(--line-strong)',
-          borderRadius: '24px',
-          padding: '12px 24px',
-          display: 'flex',
-          gap: '12px',
-          alignItems: 'center',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-          zIndex: 100,
-        }}>
+        <div className="floating-bar">
           <span style={{ fontWeight: 600, marginRight: '8px' }}>{selectedIds.length} selected</span>
           
           {isHost && tab === 'review' ? (

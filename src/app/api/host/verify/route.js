@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'vaulty_fallback_secret_change_me_in_production';
+import { signJwt } from '@/lib/auth';
 
 export async function POST(request) {
   try {
@@ -45,9 +43,8 @@ export async function POST(request) {
       transaction.update(otpRef, { consumed: true });
 
       // 5. Issue JWT
-      const hostToken = jwt.sign(
+      const hostToken = signJwt(
         { hostId, role: 'host' },
-        JWT_SECRET,
         { expiresIn: '7d' }
       );
 

@@ -46,16 +46,15 @@ export async function POST(request, { params }) {
       }
     }
 
-    // 3. Fallback to deviceToken
-    if (!isAuthorized && deviceToken) {
-      const eventDoc = await adminDb.collection('events').doc(id).get();
-      if (eventDoc.exists && eventDoc.data().creatorToken === deviceToken) {
-        isAuthorized = true;
-      }
-    }
+    // 3. (Removed legacy deviceToken fallback as per security requirements)
 
     if (!isAuthorized) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    }
+    
+    const finalEventDoc = await adminDb.collection('events').doc(id).get();
+    if (!finalEventDoc.exists || finalEventDoc.data().status === 'deleting') {
+      return NextResponse.json({ error: 'Event is being deleted' }, { status: 403 });
     }
 
     // Update Password

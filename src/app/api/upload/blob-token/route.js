@@ -36,9 +36,10 @@ export async function POST(request) {
         if (!eventId) throw new Error('Missing eventId');
         const eventSnap = await adminDb.collection('events').doc(eventId).get();
         if (!eventSnap.exists) throw new Error('Event not found');
+        const event = eventSnap.data();
+        if (event.status === 'deleting') throw new Error('Event is being deleted');
 
         if (uploaderType === 'photographer') {
-          const event = eventSnap.data();
           if (!collaboratorCode || collaboratorCode !== event.collaboratorCode) {
             throw new Error('Invalid collaborator code');
           }

@@ -24,7 +24,8 @@ export default function HostDashboard() {
       if (res.ok) {
         const data = await res.json();
         if (!data.authenticated) {
-          router.push('/host-login');
+          setLoaded(true);
+          setShowModal(true);
           return;
         }
         
@@ -37,10 +38,12 @@ export default function HostDashboard() {
         
         setLoaded(true);
       } else {
-        router.push('/host-login');
+        setLoaded(true);
+        setShowModal(true);
       }
     } catch (err) {
-      router.push('/host-login');
+      setLoaded(true);
+      setShowModal(true);
     }
   };
 
@@ -145,29 +148,60 @@ export default function HostDashboard() {
 
         {events.length > 0 ? (
           <div className="vault-grid">
-            {events.map((e) => (
-              <button
-                key={e.id}
-                className="vault-card"
-                onClick={() => router.push('/host/' + e.id)}
-              >
-                <div className="vault-cover">
-                  {e.cover && <img src={e.cover} alt="" />}
+            {events.map((e) => {
+              return (
+                <div key={e.id} style={{ position: 'relative' }}>
+                  <button
+                    className={`vault-card ${e.status === 'deleting' ? 'disabled' : ''}`}
+                    style={{ opacity: e.status === 'deleting' ? 0.6 : 1, cursor: e.status === 'deleting' ? 'not-allowed' : 'pointer', width: '100%', textAlign: 'left' }}
+                    onClick={() => e.status !== 'deleting' && router.push('/host/' + e.id)}
+                  >
+                    <div className="vault-cover">
+                      {e.cover && <img src={e.cover} alt="" />}
+                    </div>
+                    <div className="vault-body">
+                      <h3>{e.name}</h3>
+                      <div className="meta">
+                        {e.status === 'deleting' ? 'Deleting...' : fmtDate(e.date)}
+                      </div>
+                      <div className="vault-badges">
+                        {e.status === 'deleting' ? (
+                          <span className="pill warn">Deletion in progress</span>
+                        ) : (
+                          <>
+                            <span className={`pill ${e.accessMode === 'pin' ? 'warn' : ''}`}>
+                              {e.accessMode === 'pin' ? 'PIN protected' : 'open link'}
+                            </span>
+                            <span className={`pill ${e.moderationMode === 'approval' ? 'brass' : ''}`}>
+                              {e.moderationMode === 'approval' ? 'approval required' : 'auto-publish'}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                  {e.status === 'deleting' && e.deletionRequestedAt && (Date.now() - e.deletionRequestedAt > 10 * 60 * 1000) && (
+                    <button 
+                      className="btn" 
+                      style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 10, background: 'rgba(255,0,0,0.8)', color: 'white', border: 'none' }}
+                      onClick={(evt) => {
+                        evt.stopPropagation();
+                        if (confirm('Retry event deletion?')) {
+                          fetch(`/api/events/${e.id}/delete`, { method: 'POST' })
+                            .then(res => res.json())
+                            .then(res => {
+                               if (res.success) { showToast('Deletion retried/completed'); loadEvents(); }
+                               else { showToast(res.error || 'Failed to retry deletion'); }
+                            });
+                        }
+                      }}
+                    >
+                      Retry Deletion
+                    </button>
+                  )}
                 </div>
-                <div className="vault-body">
-                  <h3>{e.name}</h3>
-                  <div className="meta">{fmtDate(e.date)}</div>
-                  <div className="vault-badges">
-                    <span className={`pill ${e.accessMode === 'pin' ? 'warn' : ''}`}>
-                      {e.accessMode === 'pin' ? 'PIN protected' : 'open link'}
-                    </span>
-                    <span className={`pill ${e.moderationMode === 'approval' ? 'brass' : ''}`}>
-                      {e.moderationMode === 'approval' ? 'approval required' : 'auto-publish'}
-                    </span>
-                  </div>
-                </div>
-              </button>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="empty">

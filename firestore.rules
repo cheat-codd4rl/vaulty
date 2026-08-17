@@ -1,0 +1,38 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if an event is NOT deleting
+    function isEventActive(eventId) {
+      let ev = get(/databases/$(database)/documents/events/$(eventId));
+      return ev == null || ev.data.status != 'deleting';
+    }
+
+    match /events/{eventId} {
+      // Clients can only read events that are not deleting
+      allow read: if resource.data.status != 'deleting';
+      
+      // All writes must go through the secure Next.js API
+      allow write: if false;
+
+      match /uploads/{uploadId} {
+        // Clients can only read uploads if the parent event is not deleting
+        allow read: if isEventActive(eventId);
+        
+        // All upload metadata writes must go through the secure Next.js API
+        allow write: if false;
+      }
+      
+      match /security/{docId} {
+        // Login attempt rate limiting is strictly server-side
+        allow read, write: if false;
+      }
+    }
+    
+    match /hosts/{hostId} {
+      // Host profile data is accessed securely via server-side session checks
+      allow read, write: if false;
+    }
+  }
+}

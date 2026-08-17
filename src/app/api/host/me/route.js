@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
-import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'vaulty_fallback_secret_change_me_in_production';
+import { verifyJwt } from '@/lib/auth';
 
 export async function GET(request) {
   try {
@@ -15,7 +13,7 @@ export async function GET(request) {
 
     let decoded;
     try {
-      decoded = jwt.verify(match[1], JWT_SECRET);
+      decoded = verifyJwt(match[1]);
     } catch (err) {
       return NextResponse.json({ authenticated: false }, { status: 200 });
     }

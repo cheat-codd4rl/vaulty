@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/admin/recover-deletions",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

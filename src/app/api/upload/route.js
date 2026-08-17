@@ -23,6 +23,7 @@ import { adminDb } from '@/lib/firebaseAdmin';
 import { uploadToDrive } from '@/lib/drive';
 import { del } from '@vercel/blob';
 import { Readable } from 'stream';
+import crypto from 'crypto';
 
 export const runtime = 'nodejs'; // needed for streaming + the Drive client
 export const maxDuration = 60;   // raise if your host allows and video uploads need longer
@@ -46,11 +47,19 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
     const event = eventSnap.data();
+    
+    if (event.status === 'deleting') {
+      return NextResponse.json({ error: 'Event is being deleted' }, { status: 403 });
+    }
+
+    const privateSnap = await adminDb.collection('events').doc(eventId).collection('security').doc('private').get();
+    const eventPrivate = privateSnap.exists ? privateSnap.data() : {};
+    const actualCollaboratorCode = eventPrivate.collaboratorCode || event.collaboratorCode;
 
     // --- Server decides role and status. Never trust these from the client. ---
     let uploaderType = 'guest';
     if (uploaderTypeInput === 'photographer') {
-      if (!collaboratorCode || collaboratorCode !== event.collaboratorCode) {
+      if (!collaboratorCode || collaboratorCode !== actualCollaboratorCode) {
         return NextResponse.json({ error: 'Invalid collaborator code' }, { status: 403 });
       }
       uploaderType = 'photographer';
@@ -90,11 +99,6 @@ export async function POST(request) {
       size,
       mimeType: mimeType || null,
       uploaderType,
-      // SECURITY TODO: deviceToken here is a client-supplied string — spoofable.
-      // Once Firebase Anonymous Auth is wired in, verify a Firebase ID token
-      // server-side instead (admin.auth().verifyIdToken(...)) and use the
-      // resulting uid in place of this field, here and in delete/route.js.
-      deviceToken,
       status,
       driveFileId: fileId,
       viewUrl,
@@ -103,15 +107,27 @@ export async function POST(request) {
       createdAt: Date.now(),
     };
 
-    const ref = await adminDb
-      .collection('events').doc(eventId)
-      .collection('uploads').add(uploadDoc);
+    const batch = adminDb.batch();
+    const uploadRef = adminDb.collection('events').doc(eventId).collection('uploads').doc();
+    batch.set(uploadRef, uploadDoc);
+
+    const deleteToken = crypto.randomBytes(32).toString('hex');
+    const deleteTokenHash = crypto.createHash('sha256').update(deleteToken).digest('hex');
+    const deleteSecurityRef = uploadRef.collection('security').doc('deletion');
+    
+    batch.set(deleteSecurityRef, {
+      deleteTokenHash,
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+      consumed: false
+    });
+
+    await batch.commit();
 
     // Blob was only ever transient staging — Drive is the real
     // destination. Clean it up; don't fail the request if this fails.
     del(blobUrl).catch((e) => console.error('Blob cleanup failed:', e.message));
 
-    return NextResponse.json({ id: ref.id, ...uploadDoc });
+    return NextResponse.json({ id: uploadRef.id, ...uploadDoc, deleteToken });
   } catch (err) {
     console.error('upload relay failed', err);
     // Best-effort cleanup even on failure, so a broken relay doesn't leave

@@ -4,7 +4,7 @@ import { useRef, useState, useCallback } from 'react';
 import { upload } from '@vercel/blob/client';
 import { genId, sleep, PLACEHOLDER_HEIC, PLACEHOLDER_VIDEO, PLACEHOLDER_GENERIC } from '@/lib/helpers';
 import { isHeic, isVideoFile, processImageFile, processVideoFile } from '@/lib/fileProcessing';
-import { addUploadRecord, getEvent, getDeviceToken, setSessionFile } from '@/lib/store';
+import { addUploadRecord, getEvent, getDeviceToken, setSessionFile, saveMyUploadId } from '@/lib/store';
 import { isFirebaseConfigured } from '@/lib/firebase';
 
 /**
@@ -145,6 +145,8 @@ export default function UploadDropzone({
                   : q
               )
             );
+            
+            saveMyUploadId(eventId, uploadDoc.id, uploadDoc.deleteToken);
           } catch (err) {
             // Cloud IS configured but this request FAILED — surface the error,
             // don't silently degrade to local-only mode. A transient failure
