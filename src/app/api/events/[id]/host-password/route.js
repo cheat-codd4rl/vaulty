@@ -7,7 +7,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'vaulty_fallback_secret_change_me_i
 
 export async function POST(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { new_password, deviceToken } = body;
 

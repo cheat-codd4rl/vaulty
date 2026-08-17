@@ -5,7 +5,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'vaulty_fallback_secret_change_me_i
 
 export async function GET(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     
     let token = request.cookies.get(`vaulty_host_${id}`)?.value;
 

@@ -9,7 +9,7 @@ const LOCKOUT_MINUTES = 15;
 
 export async function POST(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { password } = body;
 
