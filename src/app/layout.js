@@ -1,5 +1,6 @@
 import './globals.css';
 import { ToastProvider } from '@/components/Toast';
+import { Analytics } from '@vercel/analytics/next';
 
 export const metadata = {
   title: 'Vaulty — Every photo from the night, in one vault.',
