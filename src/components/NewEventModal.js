@@ -162,7 +162,7 @@ export default function NewEventModal({ onClose, onCreated }) {
             <input
               type="password"
               id="evHostPassword"
-              placeholder="Set a password to recover host access later"
+              placeholder="Set a password to recover access"
               value={hostPassword}
               onChange={(e) => setHostPassword(e.target.value)}
             />
