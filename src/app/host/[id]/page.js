@@ -83,6 +83,7 @@ export default function HostEventPage({ params }) {
 
     } catch (err) {
       console.error(err);
+      setEvent({ _error: err.message || 'Unknown error occurred' });
       setLoaded(true);
     }
   }, [id, router]);
@@ -270,14 +271,14 @@ export default function HostEventPage({ params }) {
       </>
     );
 
-  if (!event || event.status === 'deleting')
+  if (!event || event.status === 'deleting' || event._error)
     return (
       <>
         <Navbar />
         <div className="wrap section">
           <div className="empty">
-            <h3>{event ? 'Event is being deleted' : 'Event not found'}</h3>
-            <p>{event ? 'This event and its photos are currently being permanently removed.' : 'It may have been created in a different browser.'}</p>
+            <h3>{event?._error ? 'Error loading event' : (event ? 'Event is being deleted' : 'Event not found')}</h3>
+            <p>{event?._error ? event._error : (event ? 'This event and its photos are currently being permanently removed.' : 'It may have been created in a different browser.')}</p>
             <button className="btn btn-brass" onClick={() => router.push('/host')}>
               Back to dashboard
             </button>
