@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import jwt from 'jsonwebtoken';
 import { deleteFromDrive } from '@/lib/drive';
+import { processEventDeletion } from '@/lib/deleteEvent';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'vaulty_fallback_secret_change_me_in_production';
 
