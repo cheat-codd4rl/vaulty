@@ -4,7 +4,7 @@ import { verifyJwt } from '@/lib/auth';
 
 export async function PATCH(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
 
     // 1. Authenticate host session

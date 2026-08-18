@@ -8,7 +8,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'vaulty_fallback_secret_change_me_i
 
 export async function POST(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // 1. Authenticate host session
     const cookieHeader = request.headers.get('cookie') || '';

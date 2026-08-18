@@ -7,7 +7,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'vaulty_fallback_secret_change_me_i
 
 export async function POST(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const { uploadIds, action } = await request.json();
 
     if (!Array.isArray(uploadIds) || uploadIds.length === 0) {
