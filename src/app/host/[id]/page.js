@@ -50,7 +50,6 @@ export default function HostEventPage({ params }) {
       let authorized = false;
 
       if (sessionData.authenticated) {
-        setHostId(sessionData.hostId);
         if (ev.hostId === sessionData.hostId) {
           authorized = true;
         }
