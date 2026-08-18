@@ -47,6 +47,53 @@ export async function POST(request) {
     }
 
     const eventData = eventDoc.data();
+    const privateData = privateDoc.exists ? privateDoc.data() : null;
+
+    // Rate Limiting Check
+    const ip = request.headers.get('x-forwarded-for') || 'unknown_ip';
+    const ipKey = ip.replace(/[.#$/[\]]/g, '_');
+    const rateLimitRef = eventRef.collection('security').doc(`ratelimit_${ipKey}`);
+    const rateLimitDoc = await rateLimitRef.get();
+    
+    if (rateLimitDoc.exists) {
+      const rlData = rateLimitDoc.data();
+      if (rlData.attempts >= 5 && rlData.expiresAt > Date.now()) {
+        return NextResponse.json({ error: 'Too many attempts, try again later' }, { status: 429 });
+      }
+    }
+
+    const recordFailedAttempt = async () => {
+      if (rateLimitDoc.exists) {
+        await rateLimitRef.update({
+          attempts: (rateLimitDoc.data().attempts || 0) + 1,
+          expiresAt: Date.now() + 15 * 60 * 1000 // 15 mins lockout
+        });
+      } else {
+        await rateLimitRef.set({ attempts: 1, expiresAt: Date.now() + 15 * 60 * 1000 });
+      }
+    };
+
+    // Require PIN for PIN-protected events
+    if (eventData.hasPin || eventData.accessMode === 'pin') {
+      const pin = body.pin;
+      if (!pin) {
+        return NextResponse.json({ error: 'PIN_REQUIRED', message: 'This event requires a PIN' }, { status: 401 });
+      }
+      if (!privateData || !privateData.pinHash) {
+        return NextResponse.json({ error: 'PIN is not set up on this event' }, { status: 400 });
+      }
+      
+      // Dynamic import of bcryptjs since it's only needed for PIN validation here
+      const bcrypt = await import('bcryptjs');
+      const pinMatch = await bcrypt.compare(pin, privateData.pinHash);
+      if (!pinMatch) {
+        await recordFailedAttempt();
+        return NextResponse.json({ error: 'Incorrect PIN' }, { status: 401 });
+      }
+    }
+
+    // Reset rate limit on success
+    if (rateLimitDoc.exists) await rateLimitRef.delete();
 
     // Create Guest Identity
     const guestId = 'gst_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);

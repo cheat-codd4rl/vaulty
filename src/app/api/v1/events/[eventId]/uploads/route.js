@@ -73,6 +73,19 @@ export async function POST(request, context) {
       return NextResponse.json({ error: 'No file found in request under "photo" or "file" key' }, { status: 400 });
     }
 
+    // MIME type validation
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/heic', 'video/mp4', 'video/quicktime'];
+    const mimeType = file.type || 'application/octet-stream';
+    if (!allowedMimeTypes.includes(mimeType)) {
+      return NextResponse.json({ error: 'Unsupported file type. Please upload a photo or video.' }, { status: 415 });
+    }
+
+    // Size limit (e.g. 100MB)
+    const maxSize = 100 * 1024 * 1024;
+    if (file.size > maxSize) {
+      return NextResponse.json({ error: 'File is too large. Maximum size is 100MB.' }, { status: 413 });
+    }
+
     // 5. Upload to Google Drive directly (streaming)
     // Note: If hosted on Vercel, this is bound by Vercel's 4.5MB request limit.
     // For large mobile uploads in production, a client-side direct upload (like Vercel Blob) is required.
