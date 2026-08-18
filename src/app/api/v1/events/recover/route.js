@@ -43,10 +43,15 @@ export async function POST(request) {
       }
     };
 
-    // Find the guest by name
-    const guestsSnap = await eventRef.collection('guests').where('name', '==', name.trim()).get();
+    // Find the guest by name (case-insensitive)
+    const normalizedName = name.trim().toLowerCase();
+    const guestsSnap = await eventRef.collection('guests').get();
     
-    if (guestsSnap.empty) {
+    const matchedGuests = guestsSnap.docs.filter(doc => 
+      doc.data().name && doc.data().name.trim().toLowerCase() === normalizedName
+    );
+    
+    if (matchedGuests.length === 0) {
       await recordFailedAttempt();
       return NextResponse.json({ error: 'Guest not found' }, { status: 404 });
     }
@@ -55,7 +60,7 @@ export async function POST(request) {
     const targetClaimCode = claimCode.toUpperCase().trim();
     let matchedGuest = null;
 
-    for (const doc of guestsSnap.docs) {
+    for (const doc of matchedGuests) {
       if (doc.data().claimCode === targetClaimCode) {
         matchedGuest = { id: doc.id, ...doc.data() };
         break;

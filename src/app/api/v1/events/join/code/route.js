@@ -62,6 +62,21 @@ export async function POST(request) {
     // Reset rate limit on success
     if (rateLimitDoc.exists) await rateLimitRef.delete();
 
+    // Check for duplicate names (trigger recovery flow on mobile)
+    const normalizedName = name.trim().toLowerCase();
+    const allGuestsSnap = await eventRef.collection('guests').get();
+    const nameTaken = allGuestsSnap.docs.some(doc => 
+      doc.data().name && doc.data().name.trim().toLowerCase() === normalizedName
+    );
+
+    if (nameTaken) {
+      return NextResponse.json({ 
+        error: 'NAME_TAKEN', 
+        message: 'This name is already in use at this event. Please recover your session.',
+        requireClaim: true 
+      }, { status: 409 });
+    }
+
     // Create Guest Identity
     const guestId = 'gst_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     const claimCode = Math.random().toString(36).slice(2, 8).toUpperCase();
