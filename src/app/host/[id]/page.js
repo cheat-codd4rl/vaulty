@@ -32,7 +32,8 @@ export default function HostEventPage({ params }) {
   const [copiedGuest, setCopiedGuest] = useState(false);
   const [copiedPro, setCopiedPro] = useState(false);
 
-  const [hostId, setHostId] = useState(null);
+  const [privateData, setPrivateData] = useState(null);
+  const [rawPin, setRawPin] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -69,6 +70,12 @@ export default function HostEventPage({ params }) {
         return;
       }
 
+      // Fetch private details
+      const privRes = await fetch(`/api/events/${id}/private`);
+      if (privRes.ok) {
+        setPrivateData(await privRes.json());
+      }
+
       setEvent(ev);
       const ups = await listUploads(id);
       setUploads(ups);
@@ -89,10 +96,13 @@ export default function HostEventPage({ params }) {
   const pro = approved.filter((u) => u.uploaderType === 'photographer');
   const guestUp = approved.filter((u) => u.uploaderType !== 'photographer');
 
-  const guestLink = typeof window !== 'undefined' ? window.location.origin + '/e/' + id : '';
+  const guestLink = typeof window !== 'undefined' && privateData?.inviteToken
+    ? window.location.origin + '/invite/' + privateData.inviteToken
+    : (typeof window !== 'undefined' ? window.location.origin + '/e/' + id : '');
+    
   const proLink =
-    typeof window !== 'undefined' && event
-      ? window.location.origin + '/e/' + id + '/pro/' + event.collaboratorCode
+    typeof window !== 'undefined' && event && privateData?.collaboratorCode
+      ? window.location.origin + '/e/' + id + '/pro/' + privateData.collaboratorCode
       : '';
 
   const copyGuestLink = () => {
@@ -108,13 +118,34 @@ export default function HostEventPage({ params }) {
   };
 
   const toggleAccess = async () => {
-    const ev = await getEvent(id);
-    ev.accessMode = ev.accessMode === 'pin' ? 'open' : 'pin';
-    if (ev.accessMode === 'pin' && !ev.pin) {
-      ev.pin = String(Math.floor(1000 + Math.random() * 9000));
+    const isNowPin = event.accessMode !== 'pin';
+    const res = await fetch(`/api/events/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accessMode: isNowPin ? 'pin' : 'open' })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setEvent({ ...event, accessMode: data.updated.accessMode, hasPin: data.updated.hasPin });
+      setRawPin(data.rawPin || null);
+    } else {
+      showToast('Failed to update access mode');
     }
-    await updateEvent(ev);
-    setEvent({ ...ev });
+  };
+
+  const resetPin = async () => {
+    if (!confirm('This will invalidate the current PIN. Continue?')) return;
+    const res = await fetch(`/api/events/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resetPin: true })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setEvent({ ...event, accessMode: 'pin', hasPin: true });
+      setRawPin(data.rawPin);
+      showToast('New PIN generated');
+    }
   };
 
   const toggleMod = async () => {
@@ -288,6 +319,20 @@ export default function HostEventPage({ params }) {
           </div>
         </div>
       )}
+      
+      {event?.pinUpgraded && (
+        <div className="wrap section" style={{ paddingBottom: 0 }}>
+          <div className="warn-card" style={{ background: '#fff3cd', border: '1px solid #ffe69c', color: '#664d03' }}>
+            <div className="warn-card-header">
+              <span className="warn-icon" style={{ filter: 'grayscale(1)' }}>🔒</span>
+              <h3 style={{ color: '#664d03' }}>PIN Security Upgraded</h3>
+            </div>
+            <p style={{ color: '#664d03', marginTop: '8px' }}>
+              Your event PIN has been upgraded to a more secure 6-digit hash. Since it cannot be viewed, you must click <b>Reset PIN</b> in the share panel below to generate a new one and share it with your guests.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="wrap">
         <div className="event-header">
@@ -348,7 +393,19 @@ export default function HostEventPage({ params }) {
             {event.accessMode === 'pin' && (
               <div className="pin-field">
                 <label>Guest PIN</label>
-                <div className="pin-badge">{event.pin.split('').join(' ')}</div>
+                {rawPin ? (
+                  <div className="pin-badge" style={{ background: '#e0f7fa', color: '#006064', display: 'flex', flexDirection: 'column' }}>
+                    <span>{rawPin.split('').join(' ')}</span>
+                    <span style={{ fontSize: '11px', marginTop: '4px', fontWeight: 'normal', letterSpacing: 'normal' }}>
+                      Save this! It won't be shown again.
+                    </span>
+                  </div>
+                ) : (
+                  <div className="pin-badge" style={{ fontSize: '18px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    ••••••
+                    <button className="btn btn-sm" onClick={resetPin}>Reset PIN</button>
+                  </div>
+                )}
               </div>
             )}
           </div>

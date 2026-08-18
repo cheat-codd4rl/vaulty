@@ -24,14 +24,29 @@ export default function GuestPage({ params }) {
   const [uploads, setUploads] = useState([]);
   const [myIds, setMyIds] = useState([]);
   const [loaded, setLoaded] = useState(false);
-  const [pinUnlocked, setPinUnlocked] = useState(false);
-  const [pinValue, setPinValue] = useState('');
-  const [pinError, setPinError] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [sessionClaimCode, setSessionClaimCode] = useState('');
+  const [whoAreYouData, setWhoAreYouData] = useState(null); // { guests: [] }
+  const [selectedGuestId, setSelectedGuestId] = useState('');
+  const [claimCode, setClaimCode] = useState('');
 
   const loadData = useCallback(async () => {
+    // 1. Check Session
+    const sessRes = await fetch(`/api/events/${id}/session`);
+    if (sessRes.ok) {
+      const sessData = await sessRes.json();
+      setIsAuthenticated(true);
+      setPinUnlocked(true); // If they have a JWT, they bypass PIN
+      if (sessData.claimCode) setSessionClaimCode(sessData.claimCode);
+    }
+
     const ev = await getEvent(id);
     setEvent(ev);
     if (ev) {
+      if (!ev.hasPin && ev.accessMode !== 'pin') {
+        setPinUnlocked(true);
+      }
+
       const ups = await listUploads(id);
       setUploads(ups);
       const ids = await getMyUploadIds(id);
@@ -44,15 +59,70 @@ export default function GuestPage({ params }) {
     loadData();
   }, [loadData]);
 
-  const handlePinSubmit = () => {
-    if (pinValue.trim() === event?.pin) {
-      setPinUnlocked(true);
-      setPinError('');
-    } else {
-      setPinError("That code doesn't match — try again.");
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('claimCode');
+    if (code) {
+      showToast(`Welcome! Your recovery claim code is ${code}. Save it if you switch devices!`);
+      // Clean up URL so they don't accidentally share it
+      window.history.replaceState({}, '', `/e/${id}`);
+    }
+  }, [id, showToast]);
+
+  const handlePinSubmit = async () => {
+    if (!pinValue.trim()) return;
+    try {
+      const res = await fetch('/api/auth/guest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: id, pin: pinValue })
+      });
+      const data = await res.json();
+      
+      if (!res.ok) {
+        setPinError(data.error || 'Incorrect PIN');
+      } else if (data.requireClaim) {
+        setPinError('');
+        setWhoAreYouData(data); // Move to "Who are you?" step
+      }
+    } catch (err) {
+      setPinError('Failed to verify PIN');
     }
   };
 
+  const handleClaimSubmit = async () => {
+    if (!selectedGuestId || !claimCode.trim()) {
+      setPinError('Select your name and enter the claim code');
+      return;
+    }
+    try {
+      const res = await fetch('/api/auth/guest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          eventId: id, 
+          pin: pinValue, 
+          targetGuestId: selectedGuestId, 
+          claimCode: claimCode.trim() 
+        })
+      });
+      const data = await res.json();
+      
+      if (!res.ok) {
+        setPinError(data.error || 'Incorrect claim code');
+      } else {
+        setIsAuthenticated(true);
+        setPinUnlocked(true);
+        setPinError('');
+        loadData(); // reload session and uploads
+      }
+    } catch (err) {
+      setPinError('Failed to verify claim code');
+    }
+  };
+
+  // ... (keep the delete/download functions the same)
+  // Re-declare them here for completeness
   const handleDelete = async (uid) => {
     if (!confirm('Delete this upload?')) return;
     await deleteUploadRecord(id, uid);
@@ -137,8 +207,54 @@ export default function GuestPage({ params }) {
       </>
     );
 
-  // PIN gate
-  if (event.accessMode === 'pin' && !pinUnlocked) {
+  // PIN / Auth gate
+  if ((event.hasPin || event.accessMode === 'pin') && !pinUnlocked) {
+    if (whoAreYouData) {
+      return (
+        <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 24px', background: 'var(--ink)' }}>
+          <AbsoluteThemeToggle />
+          <div style={{ width: '100%', maxWidth: '380px', display: 'flex', flexDirection: 'column', gap: '24px', margin: 'auto' }}>
+            <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <h2 style={{ fontSize: '28px', letterSpacing: '-0.02em', margin: '0 0 8px 0' }}>Who are you?</h2>
+              <p style={{ color: 'var(--text-dim)', fontSize: '15px', margin: 0 }}>Select your name to link this device.</p>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <select 
+                className="pin-input" 
+                style={{ width: '100%', height: '56px', fontSize: '16px', padding: '0 16px', appearance: 'none', background: 'var(--card-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }}
+                value={selectedGuestId}
+                onChange={(e) => setSelectedGuestId(e.target.value)}
+              >
+                <option value="" disabled>Select your name...</option>
+                {whoAreYouData.guests.map(g => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+              
+              {selectedGuestId && (
+                <input
+                  className="pin-input"
+                  maxLength={6}
+                  placeholder="6-digit Claim Code"
+                  value={claimCode}
+                  onChange={(e) => setClaimCode(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => e.key === 'Enter' && handleClaimSubmit()}
+                  style={{ width: '100%', height: '56px', textTransform: 'uppercase', letterSpacing: '2px', fontFamily: 'monospace' }}
+                />
+              )}
+
+              {pinError && (
+                <p style={{ color: 'var(--rust)', fontSize: 13, textAlign: 'center', margin: 0 }}>{pinError}</p>
+              )}
+              <button className="btn btn-brass btn-block" style={{ height: '56px', fontSize: '15.5px' }} onClick={handleClaimSubmit}>
+                Restore access
+              </button>
+            </div>
+          </div>
+        </main>
+      );
+    }
+
     return (
       <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 24px', background: 'var(--ink)' }}>
         <AbsoluteThemeToggle />
@@ -152,9 +268,9 @@ export default function GuestPage({ params }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <input
               className="pin-input"
-              maxLength={4}
+              maxLength={6}
               inputMode="numeric"
-              placeholder="••••"
+              placeholder="••••••"
               value={pinValue}
               onChange={(e) => setPinValue(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handlePinSubmit()}
@@ -179,6 +295,12 @@ export default function GuestPage({ params }) {
         <div className="event-header">
           <div className="sub">{fmtDate(event.date)}</div>
           <h1>{event.name}</h1>
+          {sessionClaimCode && (
+            <div style={{ marginTop: '16px', background: 'var(--card-bg)', border: '1px solid var(--border)', padding: '12px 16px', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '13px', color: 'var(--text-dim)' }}>Recovery Code:</span>
+              <strong style={{ fontFamily: 'monospace', fontSize: '16px', letterSpacing: '1px', color: 'var(--text-main)' }}>{sessionClaimCode}</strong>
+            </div>
+          )}
         </div>
       </div>
       <div className="wrap section">

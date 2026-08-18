@@ -78,10 +78,21 @@ export async function POST(request) {
       isNewHost = true;
     }
 
-    // 2. Generate Event IDs
+    // 2. Generate Event IDs and Credentials
     const id = 'evt_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     const collaboratorCode = Math.random().toString(36).slice(2, 10);
-    const pin = accessMode === 'pin' ? String(Math.floor(1000 + Math.random() * 9000)) : null;
+    
+    // Generate 128-bit opaque invite token (32 hex chars)
+    const crypto = await import('crypto');
+    const inviteToken = crypto.randomBytes(16).toString('hex');
+    
+    // Generate 6-digit PIN if required
+    let rawPin = null;
+    let pinHash = null;
+    if (accessMode === 'pin') {
+      rawPin = String(Math.floor(100000 + Math.random() * 900000));
+      pinHash = await bcrypt.hash(rawPin, 10);
+    }
 
     // 3. Create Drive folder
     let driveFolderId = null;
@@ -98,7 +109,7 @@ export async function POST(request) {
       date: date || '',
       cover: null,
       accessMode: accessMode || 'open',
-      pin,
+      hasPin: accessMode === 'pin',
       moderationMode: moderationMode || 'auto',
       collaboratorCode,
       photographerName: photographerName || '',
@@ -115,12 +126,13 @@ export async function POST(request) {
     batch.set(privateRef, {
       creatorToken: deviceToken,
       collaboratorCode,
-      pin
+      inviteToken,
+      pinHash
     });
 
     await batch.commit();
 
-    const res = NextResponse.json({ ...event, isNewHost });
+    const res = NextResponse.json({ ...event, isNewHost, rawPin });
 
     // Set cookie if a new host was registered
     if (newHostToken) {

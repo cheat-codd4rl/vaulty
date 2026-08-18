@@ -42,20 +42,47 @@ export async function PATCH(request, { params }) {
 
     // 3. Explicit allowlist for editable fields
     const allowedUpdates = {};
-    if (body.accessMode !== undefined) allowedUpdates.accessMode = body.accessMode;
-    if (body.moderationMode !== undefined) allowedUpdates.moderationMode = body.moderationMode;
+    let rawPin = null;
+    const batch = adminDb.batch();
     
-    // NOTE: In the future, pin could be updated in the security/private doc if moved there.
-    // Since it's still on the main doc (we left it public for client-side checks), we update it here.
-    if (body.pin !== undefined) allowedUpdates.pin = body.pin;
-
-    if (Object.keys(allowedUpdates).length === 0) {
-      return NextResponse.json({ error: 'No valid fields provided to update' }, { status: 400 });
+    if (body.accessMode !== undefined) {
+      allowedUpdates.accessMode = body.accessMode;
+      allowedUpdates.hasPin = body.accessMode === 'pin';
+      
+      // If toggling to pin mode, ensure there's a pin
+      if (body.accessMode === 'pin') {
+        const privateRef = eventRef.collection('security').doc('private');
+        const privateDoc = await privateRef.get();
+        if (!privateDoc.exists || !privateDoc.data().pinHash) {
+          const bcrypt = await import('bcryptjs');
+          rawPin = String(Math.floor(100000 + Math.random() * 900000));
+          const pinHash = await bcrypt.hash(rawPin, 10);
+          batch.set(privateRef, { pinHash }, { merge: true });
+        }
+      }
+    }
+    
+    if (body.moderationMode !== undefined) {
+      allowedUpdates.moderationMode = body.moderationMode;
+    }
+    
+    if (body.resetPin === true) {
+      const bcrypt = await import('bcryptjs');
+      rawPin = String(Math.floor(100000 + Math.random() * 900000));
+      const pinHash = await bcrypt.hash(rawPin, 10);
+      const privateRef = eventRef.collection('security').doc('private');
+      batch.set(privateRef, { pinHash }, { merge: true });
+      allowedUpdates.accessMode = 'pin';
+      allowedUpdates.hasPin = true;
     }
 
-    await eventRef.update(allowedUpdates);
+    if (Object.keys(allowedUpdates).length > 0) {
+      batch.update(eventRef, allowedUpdates);
+    }
+    
+    await batch.commit();
 
-    return NextResponse.json({ success: true, updated: allowedUpdates });
+    return NextResponse.json({ success: true, updated: allowedUpdates, rawPin });
   } catch (err) {
     console.error('Event update failed:', err);
     return NextResponse.json({ error: 'Failed to update event' }, { status: 500 });
