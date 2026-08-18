@@ -6,12 +6,12 @@ service cloud.firestore {
     // Helper function to check if an event is NOT deleting
     function isEventActive(eventId) {
       let ev = get(/databases/$(database)/documents/events/$(eventId));
-      return ev == null || ev.data.status != 'deleting';
+      return ev == null || !('status' in ev.data) || ev.data.status != 'deleting';
     }
 
     match /events/{eventId} {
       // Clients can only read events that are not deleting
-      allow read: if resource.data.status != 'deleting';
+      allow read: if !('status' in resource.data) || resource.data.status != 'deleting';
       
       // All writes must go through the secure Next.js API
       allow write: if false;
