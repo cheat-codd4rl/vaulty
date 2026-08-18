@@ -32,12 +32,12 @@ export async function sendHostOtp(email, code) {
       });
 
       if (!res.ok) {
-        // Do not log the actual recipient or code on failure
-        console.error(`[CRITICAL] OTP email delivery failed with status ${res.status}`);
+        const errorText = await res.text();
+        console.error(`[CRITICAL] OTP email delivery failed with status ${res.status}: ${errorText}`);
         throw new Error('Failed to deliver OTP email.');
       }
     } catch (err) {
-      console.error('[CRITICAL] OTP email delivery exception occurred.');
+      console.error('[CRITICAL] OTP email delivery exception:', err.message);
       throw new Error('Failed to deliver OTP email.');
     }
   }
