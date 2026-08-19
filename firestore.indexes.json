@@ -1,0 +1,11 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "security",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "inviteToken", "order": "ASCENDING" }
+      ]
+    }
+  ]
+}
