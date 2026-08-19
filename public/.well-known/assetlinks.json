@@ -3,9 +3,9 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.example.vaulty",
+      "package_name": "com.vaulty.companion",
       "sha256_cert_fingerprints": [
-        "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00"
+        "82:DE:53:A3:B3:85:88:A8:A6:3F:F7:98:8A:EA:A9:F3:DA:AB:AF:3E:CD:17:9A:1E:F3:BF:11:36:7F:44:B9:B7"
       ]
     }
   }
