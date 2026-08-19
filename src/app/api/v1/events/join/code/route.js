@@ -8,18 +8,20 @@ export async function POST(request) {
     const body = await request.json();
     const { code, pin, name } = body;
 
-    if (!code || !pin || !name || name.trim() === '') {
-      return NextResponse.json({ error: 'Missing required fields: code, pin, and name are required' }, { status: 400 });
+    if (!code || !name || name.trim() === '') {
+      return NextResponse.json({ error: 'Missing required fields: code and name are required' }, { status: 400 });
     }
 
-    const eventId = code.trim();
-    const eventRef = adminDb.collection('events').doc(eventId);
-    const eventDoc = await eventRef.get();
+    const inputCode = code.trim().toUpperCase();
+    const eventQuery = await adminDb.collection('events').where('code', '==', inputCode).limit(1).get();
 
-    if (!eventDoc.exists) {
+    if (eventQuery.empty) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
+    const eventDoc = eventQuery.docs[0];
+    const eventRef = eventDoc.ref;
+    const eventId = eventRef.id;
     const eventData = eventDoc.data();
     const privateDoc = await eventRef.collection('security').doc('private').get();
     const privateData = privateDoc.exists ? privateDoc.data() : null;

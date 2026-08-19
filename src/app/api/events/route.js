@@ -82,6 +82,22 @@ export async function POST(request) {
     const id = 'evt_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     const collaboratorCode = Math.random().toString(36).slice(2, 10);
     
+    // Generate unique 6-8 char join code
+    let code = '';
+    let isCodeUnique = false;
+    let attempts = 0;
+    while (!isCodeUnique && attempts < 5) {
+      code = Math.random().toString(36).slice(2, 8).toUpperCase();
+      const existing = await adminDb.collection('events').where('code', '==', code).limit(1).get();
+      if (existing.empty) {
+        isCodeUnique = true;
+      }
+      attempts++;
+    }
+    if (!isCodeUnique) {
+      code = Math.random().toString(36).slice(2, 10).toUpperCase(); // fallback to longer if collision heavy
+    }
+    
     // Generate 128-bit opaque invite token (32 hex chars)
     const crypto = await import('crypto');
     const inviteToken = crypto.randomBytes(16).toString('hex');
@@ -105,6 +121,7 @@ export async function POST(request) {
     // 4. Create Event Document
     const event = {
       id,
+      code,
       name,
       date: date || '',
       cover: null,
