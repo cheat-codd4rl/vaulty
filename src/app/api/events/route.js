@@ -122,6 +122,7 @@ export async function POST(request) {
     const event = {
       id,
       code,
+      inviteToken,
       name,
       date: date || '',
       cover: null,

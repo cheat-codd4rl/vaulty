@@ -30,26 +30,19 @@ export async function POST(request) {
     }
 
     // 1. Resolve Token
-    const securityGroup = adminDb.collectionGroup('security');
-    const snapshot = await securityGroup.where('inviteToken', '==', token).limit(1).get();
+    const snapshot = await adminDb.collection('events').where('inviteToken', '==', token).limit(1).get();
 
     if (snapshot.empty) {
       return NextResponse.json({ error: 'Invite not found or expired' }, { status: 404 });
     }
 
-    const privateDoc = snapshot.docs[0];
-    const eventRef = privateDoc.ref.parent.parent;
-    if (!eventRef) {
-      return NextResponse.json({ error: 'Event reference not found' }, { status: 500 });
-    }
+    const eventDoc = snapshot.docs[0];
+    const eventRef = eventDoc.ref;
     const eventId = eventRef.id;
-
-    const eventDoc = await eventRef.get();
-    if (!eventDoc.exists) {
-      return NextResponse.json({ error: 'Event not found' }, { status: 404 });
-    }
-
     const eventData = eventDoc.data();
+
+    // Still load private data for PIN checking if needed (backwards compatibility)
+    const privateDoc = await eventRef.collection('security').doc('private').get();
     const privateData = privateDoc.exists ? privateDoc.data() : null;
 
     // Rate Limiting Check
