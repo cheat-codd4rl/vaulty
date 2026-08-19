@@ -372,6 +372,14 @@ export default function HostEventPage({ params }) {
             <div className="qr-label">Scan to join</div>
           </div>
           <div className="share-details">
+            {event.code && (
+              <div className="field">
+                <label>Event Code <span>(Short code)</span></label>
+                <div className="share-row">
+                  <input type="text" readOnly value={event.code} onClick={(e) => e.target.select()} style={{ letterSpacing: '1px', fontWeight: 'bold' }} />
+                </div>
+              </div>
+            )}
             <div className="field">
               <label htmlFor="guest-link">Guest link</label>
               <div className="share-row">

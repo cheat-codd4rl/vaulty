@@ -5,17 +5,18 @@ import { signJwt } from '@/lib/auth';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { payload, name } = body;
+    const { payload, qrToken, name } = body;
+    const tokenPayload = payload || qrToken;
 
-    if (!payload || !name || name.trim() === '') {
-      return NextResponse.json({ error: 'Missing required fields: payload and name are required' }, { status: 400 });
+    if (!tokenPayload || !name || name.trim() === '') {
+      return NextResponse.json({ error: 'Missing required fields: qrToken and name are required' }, { status: 400 });
     }
 
     // Extract the token if the payload is a full URL
-    let token = payload;
+    let token = tokenPayload;
     try {
-      if (payload.includes('/invite/')) {
-        const url = new URL(payload);
+      if (tokenPayload.includes('/invite/')) {
+        const url = new URL(tokenPayload);
         token = url.pathname.split('/invite/')[1];
       }
     } catch (e) {
