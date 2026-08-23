@@ -15,13 +15,15 @@ export default function HomeGate() {
   const [code, setCode] = useState('');
   const [codeError, setCodeError] = useState('');
 
+  const [codeLoading, setCodeLoading] = useState(false);
+
   function resetToRoot() {
     setView(VIEW.ROOT);
     setCode('');
     setCodeError('');
   }
 
-  function handleGuestSubmit(e) {
+  async function handleGuestSubmit(e) {
     e.preventDefault();
     const v = code.trim();
     if (!v) {
@@ -30,6 +32,7 @@ export default function HomeGate() {
     }
     setCodeError('');
     
+    // Try to parse as a full URL first
     const hashMatch = v.match(/#\/e\/([A-Za-z0-9_]+)/);
     if (hashMatch) {
       router.push('/e/' + hashMatch[1]);
@@ -40,9 +43,34 @@ export default function HomeGate() {
       router.push('/e/' + routeMatch[1]);
       return;
     }
-    const idGuess = v.trim();
-    if (/^evt_/.test(idGuess)) {
-      router.push('/e/' + idGuess);
+    // Direct event ID (evt_ prefix)
+    if (/^evt_/.test(v)) {
+      router.push('/e/' + v);
+      return;
+    }
+
+    // Looks like a short code — resolve via API
+    if (/^[A-Za-z0-9]{4,10}$/.test(v)) {
+      setCodeLoading(true);
+      try {
+        const res = await fetch('/api/events/resolve?code=' + encodeURIComponent(v));
+        if (res.ok) {
+          const data = await res.json();
+          router.push('/e/' + data.id);
+          return;
+        }
+        if (res.status === 404) {
+          setCodeError('No event found with that code');
+        } else if (res.status === 429) {
+          setCodeError('Too many attempts — try again in a minute');
+        } else {
+          setCodeError('Something went wrong — try again');
+        }
+      } catch {
+        setCodeError("Couldn't reach the server — try again");
+      } finally {
+        setCodeLoading(false);
+      }
       return;
     }
     
@@ -102,8 +130,8 @@ export default function HomeGate() {
               />
               {codeError && <p style={{ fontSize: '12px', color: 'var(--rust)', margin: '6px 0 0' }}>{codeError}</p>}
             </div>
-            <button type="submit" className="btn btn-brass btn-block" style={{ height: '56px', fontSize: '15.5px' }}>
-              Join event
+            <button type="submit" disabled={codeLoading} className="btn btn-brass btn-block" style={{ height: '56px', fontSize: '15.5px' }}>
+              {codeLoading ? 'Looking up…' : 'Join event'}
             </button>
             <button type="button" onClick={resetToRoot} style={{ background: 'none', border: 'none', color: 'var(--text-faint)', fontSize: '13px', cursor: 'pointer', marginTop: '6px' }}>
               ← Back

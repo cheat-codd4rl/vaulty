@@ -45,8 +45,16 @@ export async function POST(request) {
       // 5. Issue JWT
       const hostToken = signJwt(
         { hostId, role: 'host' },
-        { expiresIn: '7d' }
+        { expiresIn: '30d' }
       );
+
+      // 6. Persist session for multi-account switching
+      await adminDb.collection('host_sessions').doc(hostId).set({
+        hostId,
+        token: hostToken,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+      });
 
       const res = NextResponse.json({ success: true, hostId });
       
@@ -55,7 +63,7 @@ export async function POST(request) {
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: 7 * 24 * 60 * 60 // 7 days in seconds
+        maxAge: 30 * 24 * 60 * 60 // 30 days in seconds
       });
 
       return res;

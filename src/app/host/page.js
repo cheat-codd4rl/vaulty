@@ -51,10 +51,23 @@ export default function HostDashboard() {
     loadEvents();
   }, []);
 
-  const handleCreated = (event) => {
+  const handleCreated = async (event) => {
     setShowModal(false);
     // Refresh list if the user created a profile
     if (event.isNewHost) {
+      // Save the new account to localStorage for the account switcher
+      try {
+        const meRes = await fetch('/api/host/me');
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          if (meData.authenticated) {
+            const { upsertAccount } = await import('@/components/HostProfileMenu');
+            upsertAccount({ hostId: meData.hostId, email: meData.email, name: meData.name });
+          }
+        }
+      } catch {
+        // Non-critical
+      }
       loadEvents();
     } else {
       router.push('/host/' + event.id);

@@ -167,6 +167,9 @@ export async function POST(request) {
       guestId,
       name: name.trim(),
       claimCode: returnedClaimCode, // used to claim this profile on another device
+      joinedAt: Date.now(),
+      photoCount: 0,
+      lastUploadAt: null,
       createdAt: Date.now()
     };
     

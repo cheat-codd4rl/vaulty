@@ -123,6 +123,26 @@ export async function POST(request) {
 
     await batch.commit();
 
+    // Increment guest upload stats for the host dashboard
+    try {
+      const { verifyJwt } = await import('@/lib/auth');
+      const cookieHeader = request.headers.get('cookie') || '';
+      const guestMatch = cookieHeader.match(new RegExp(`vaulty_guest_${eventId}=([^;]+)`));
+      if (guestMatch) {
+        const decoded = verifyJwt(guestMatch[1]);
+        if (decoded.guestId) {
+          const { FieldValue } = await import('firebase-admin/firestore');
+          await adminDb.collection('events').doc(eventId)
+            .collection('guests').doc(decoded.guestId)
+            .update({
+              photoCount: FieldValue.increment(1),
+              lastUploadAt: Date.now(),
+            });
+        }
+      }
+    } catch {
+      // Non-critical — guest may not have a JWT session (e.g. open events)
+    }
     // Blob was only ever transient staging — Drive is the real
     // destination. Clean it up; don't fail the request if this fails.
     del(blobUrl).catch((e) => console.error('Blob cleanup failed:', e.message));

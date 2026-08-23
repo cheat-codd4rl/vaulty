@@ -96,3 +96,42 @@ export async function deleteFromDrive(fileId) {
   const drive = getDriveClient();
   await drive.files.delete({ fileId });
 }
+
+export async function getResumableUploadSessionUrl({ filename, mimeType, folderId }) {
+  const authClient = getOAuth2Client();
+  const tokenRes = await authClient.getAccessToken();
+  const token = tokenRes.token;
+
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'X-Upload-Content-Type': mimeType || 'application/octet-stream',
+    },
+    body: JSON.stringify({
+      name: filename,
+      parents: [folderId]
+    })
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to create resumable session: ${await res.text()}`);
+  }
+
+  return res.headers.get('Location');
+}
+
+export async function finalizeDriveUpload(fileId) {
+  const drive = getDriveClient();
+  await drive.permissions.create({
+    fileId,
+    requestBody: { role: 'reader', type: 'anyone' },
+  });
+
+  return {
+    fileId,
+    viewUrl: `https://drive.google.com/uc?export=view&id=${fileId}`,
+    downloadUrl: `https://drive.google.com/uc?export=download&id=${fileId}`,
+  };
+}

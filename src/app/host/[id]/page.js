@@ -17,6 +17,17 @@ import {
 } from '@/lib/store';
 import { fmtDate, fmtBytes, PLACEHOLDER_GENERIC } from '@/lib/helpers';
 
+function formatRelativeTime(ts) {
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
 export default function HostEventPage({ params }) {
   const { id } = use(params);
   const router = useRouter();
@@ -31,9 +42,10 @@ export default function HostEventPage({ params }) {
   const [savingPassword, setSavingPassword] = useState(false);
   const [copiedGuest, setCopiedGuest] = useState(false);
   const [copiedPro, setCopiedPro] = useState(false);
-
-  const [privateData, setPrivateData] = useState(null);
   const [rawPin, setRawPin] = useState(null);
+
+  // Guest tracking
+  const [guests, setGuests] = useState([]);
 
   const loadData = useCallback(async () => {
     try {
@@ -69,12 +81,6 @@ export default function HostEventPage({ params }) {
         return;
       }
 
-      // Fetch private details
-      const privRes = await fetch(`/api/events/${id}/private`);
-      if (privRes.ok) {
-        setPrivateData(await privRes.json());
-      }
-
       setEvent(ev);
       const ups = await listUploads(id);
       setUploads(ups);
@@ -91,18 +97,36 @@ export default function HostEventPage({ params }) {
     loadData();
   }, [loadData]);
 
+  // Poll guest roster every 15 seconds
+  useEffect(() => {
+    if (!event) return;
+    let cancelled = false;
+    const pollGuests = async () => {
+      try {
+        const res = await fetch(`/api/events/${id}/guests`);
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          setGuests(data.guests || []);
+        }
+      } catch { /* ignore */ }
+    };
+    pollGuests();
+    const interval = setInterval(pollGuests, 15000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [event, id]);
+
   const pending = uploads.filter((u) => u.status === 'pending');
   const approved = uploads.filter((u) => u.status === 'approved');
   const pro = approved.filter((u) => u.uploaderType === 'photographer');
   const guestUp = approved.filter((u) => u.uploaderType !== 'photographer');
 
-  const guestLink = typeof window !== 'undefined' && privateData?.inviteToken
-    ? window.location.origin + '/invite/' + privateData.inviteToken
+  const guestLink = typeof window !== 'undefined' && event?.inviteToken
+    ? window.location.origin + '/invite/' + event.inviteToken
     : (typeof window !== 'undefined' ? window.location.origin + '/e/' + id : '');
     
   const proLink =
-    typeof window !== 'undefined' && event && privateData?.collaboratorCode
-      ? window.location.origin + '/e/' + id + '/pro/' + privateData.collaboratorCode
+    typeof window !== 'undefined' && event?.collaboratorCode
+      ? window.location.origin + '/e/' + id + '/pro/' + event.collaboratorCode
       : '';
 
   const copyGuestLink = () => {
@@ -347,6 +371,10 @@ export default function HostEventPage({ params }) {
               <span>Total uploads</span>
             </div>
             <div className="stat">
+              <b>{guests.length}</b>
+              <span>Guests</span>
+            </div>
+            <div className="stat">
               <b>{pending.length}</b>
               <span>Awaiting review</span>
             </div>
@@ -419,6 +447,55 @@ export default function HostEventPage({ params }) {
           </div>
         </div>
       </div>
+
+      {/* Guests */}
+      {guests.length > 0 && (
+        <div className="wrap section" style={{ paddingTop: 0 }}>
+          <div className="section-head">
+            <div>
+              <h2>Guests</h2>
+              <p>{guests.length} connected guest{guests.length !== 1 ? 's' : ''}</p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxWidth: 520 }}>
+            {guests.map(g => {
+              const joinedAgo = g.joinedAt ? formatRelativeTime(g.joinedAt) : 'Unknown';
+              const lastUpload = g.lastUploadAt ? formatRelativeTime(g.lastUploadAt) : 'Never';
+              return (
+                <div
+                  key={g.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '14px',
+                    padding: '14px 16px', borderRadius: '12px',
+                    background: 'var(--card-bg)', border: '1px solid var(--line)'
+                  }}
+                >
+                  <span style={{
+                    width: '36px', height: '36px', borderRadius: '50%',
+                    background: 'var(--brass-soft)', color: 'var(--ink)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 600, fontSize: '15px', flexShrink: 0
+                  }}>
+                    {g.name.charAt(0).toUpperCase()}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: '14px' }}>{g.name}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-dim)' }}>
+                      Joined {joinedAgo}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: '14px' }}>{g.photoCount}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
+                      {g.photoCount === 1 ? 'photo' : 'photos'}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Settings */}
       <div className="wrap section" style={{ paddingTop: 0 }}>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { signJwt } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
+import { resolveEventByCode } from '@/lib/resolveEventByCode';
 
 export async function POST(request) {
   try {
@@ -12,22 +13,20 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing required fields: code and name are required' }, { status: 400 });
     }
 
-    const inputCode = code.trim().toUpperCase();
-    const eventQuery = await adminDb.collection('events').where('code', '==', inputCode).limit(1).get();
+    const ip = request.headers.get('x-forwarded-for') || 'unknown_ip';
+    const result = await resolveEventByCode(code, ip);
 
-    if (eventQuery.empty) {
+    if (!result) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });
     }
 
-    const eventDoc = eventQuery.docs[0];
-    const eventRef = eventDoc.ref;
-    const eventId = eventRef.id;
-    const eventData = eventDoc.data();
-    const privateDoc = await eventRef.collection('security').doc('private').get();
-    const privateData = privateDoc.exists ? privateDoc.data() : null;
+    if (result.rateLimited) {
+      return NextResponse.json({ error: 'Too many attempts, try again later' }, { status: 429 });
+    }
 
-    // Rate Limiting Check
-    const ip = request.headers.get('x-forwarded-for') || 'unknown_ip';
+    const { eventId, eventRef, eventData, privateData } = result;
+
+    // Per-event PIN rate limiting (separate from code-resolution rate limiting)
     const ipKey = ip.replace(/[.#$/[\]]/g, '_');
     const rateLimitRef = eventRef.collection('security').doc(`ratelimit_${ipKey}`);
     const rateLimitDoc = await rateLimitRef.get();
@@ -88,6 +87,9 @@ export async function POST(request) {
       name: name.trim(),
       claimCode,
       tokenVersion: 1, // Start with version 1
+      joinedAt: Date.now(),
+      photoCount: 0,
+      lastUploadAt: null,
       createdAt: Date.now()
     };
     

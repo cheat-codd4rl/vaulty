@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebaseAdmin';
 import { verifyJwt } from '@/lib/auth';
-import { uploadToDrive } from '@/lib/drive';
-import { Readable } from 'stream';
+import { getResumableUploadSessionUrl, finalizeDriveUpload } from '@/lib/drive';
 import crypto from 'crypto';
 
 export const runtime = 'nodejs';
-export const maxDuration = 60; // Allows up to 60s for the upload to complete
 
 export async function POST(request, context) {
   try {
@@ -66,79 +64,82 @@ export async function POST(request, context) {
       return NextResponse.json({ error: 'Event has no storage folder configured' }, { status: 500 });
     }
 
-    // 4. Parse Multipart Form
-    const formData = await request.formData();
-    const file = formData.get('photo') || formData.get('file'); // common field names
-    if (!file || typeof file === 'string') {
-      return NextResponse.json({ error: 'No file found in request under "photo" or "file" key' }, { status: 400 });
-    }
+    // 4. Handle Actions
+    const body = await request.json();
+    const { action, filename, mimeType } = body;
 
-    // MIME type validation
-    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/heic', 'video/mp4', 'video/quicktime'];
-    const mimeType = file.type || 'application/octet-stream';
-    if (!allowedMimeTypes.includes(mimeType)) {
-      return NextResponse.json({ error: 'Unsupported file type. Please upload a photo or video.' }, { status: 415 });
-    }
-
-    // Size limit (e.g. 100MB)
-    const maxSize = 100 * 1024 * 1024;
-    if (file.size > maxSize) {
-      return NextResponse.json({ error: 'File is too large. Maximum size is 100MB.' }, { status: 413 });
-    }
-
-    // 5. Upload to Google Drive directly (streaming)
-    // Note: If hosted on Vercel, this is bound by Vercel's 4.5MB request limit.
-    // For large mobile uploads in production, a client-side direct upload (like Vercel Blob) is required.
-    const nodeStream = Readable.fromWeb(file.stream());
+    if (action === 'init') {
+      const sessionUrl = await getResumableUploadSessionUrl({
+        filename: filename || `mobile_upload_${Date.now()}.jpg`,
+        mimeType: mimeType || 'application/octet-stream',
+        folderId: event.driveFolderId
+      });
+      return NextResponse.json({ sessionUrl });
+    } 
     
-    const { fileId, viewUrl, downloadUrl } = await uploadToDrive({
-      stream: nodeStream,
-      filename: file.name || `mobile_upload_${Date.now()}.jpg`,
-      mimeType: file.type || 'application/octet-stream',
-      folderId: event.driveFolderId,
-    });
+    if (action === 'complete') {
+      const { fileId, size } = body;
+      if (!fileId) {
+        return NextResponse.json({ error: 'fileId is required to complete upload' }, { status: 400 });
+      }
 
-    // 6. Record Upload in Firestore
-    const status = event.moderationMode === 'approval' ? 'pending' : 'approved';
-    const uploadDoc = {
-      filename: file.name || `mobile_upload_${Date.now()}.jpg`,
-      size: file.size,
-      mimeType: file.type || null,
-      uploaderType: 'guest',
-      guestId, // Keep attribution!
-      status,
-      driveFileId: fileId,
-      viewUrl,
-      downloadUrl,
-      thumbnail: null, // the mobile app doesn't send thumbnails in this endpoint currently
-      createdAt: Date.now(),
-    };
+      const { viewUrl, downloadUrl } = await finalizeDriveUpload(fileId);
 
-    const batch = adminDb.batch();
-    const uploadRef = eventRef.collection('uploads').doc();
-    batch.set(uploadRef, uploadDoc);
+      const status = event.moderationMode === 'approval' ? 'pending' : 'approved';
+      const uploadDoc = {
+        filename: filename || `mobile_upload_${Date.now()}.jpg`,
+        size: size || 0,
+        mimeType: mimeType || null,
+        uploaderType: 'guest',
+        guestId,
+        status,
+        driveFileId: fileId,
+        viewUrl,
+        downloadUrl,
+        thumbnail: null,
+        createdAt: Date.now(),
+      };
 
-    const deleteToken = crypto.randomBytes(32).toString('hex');
-    const deleteTokenHash = crypto.createHash('sha256').update(deleteToken).digest('hex');
-    const deleteSecurityRef = uploadRef.collection('security').doc('deletion');
-    
-    batch.set(deleteSecurityRef, {
-      deleteTokenHash,
-      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
-      consumed: false
-    });
+      const batch = adminDb.batch();
+      const uploadRef = eventRef.collection('uploads').doc();
+      batch.set(uploadRef, uploadDoc);
 
-    await batch.commit();
+      const deleteToken = crypto.randomBytes(32).toString('hex');
+      const deleteTokenHash = crypto.createHash('sha256').update(deleteToken).digest('hex');
+      const deleteSecurityRef = uploadRef.collection('security').doc('deletion');
+      
+      batch.set(deleteSecurityRef, {
+        deleteTokenHash,
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+        consumed: false
+      });
 
-    return NextResponse.json({ 
-      success: true, 
-      id: uploadRef.id, 
-      ...uploadDoc, 
-      deleteToken 
-    });
+      await batch.commit();
+
+      // Increment guest upload stats for the host dashboard
+      try {
+        const { FieldValue } = await import('firebase-admin/firestore');
+        await guestRef.update({
+          photoCount: FieldValue.increment(1),
+          lastUploadAt: Date.now(),
+        });
+      } catch {
+        // Non-critical — guest doc may not have these fields yet
+      }
+
+      return NextResponse.json({ 
+        success: true, 
+        id: uploadRef.id, 
+        ...uploadDoc, 
+        deleteToken 
+      });
+    }
+
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
 
   } catch (err) {
     console.error('Mobile upload failed:', err);
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
   }
 }
+

@@ -74,8 +74,16 @@ export async function POST(request) {
       });
 
       // Generate JWT for the new host
-      newHostToken = signJwt({ hostId, role: 'host' }, { expiresIn: '7d' });
+      newHostToken = signJwt({ hostId, role: 'host' }, { expiresIn: '30d' });
       isNewHost = true;
+
+      // Persist session for multi-account switching
+      await adminDb.collection('host_sessions').doc(hostId).set({
+        hostId,
+        token: newHostToken,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+      });
     }
 
     // 2. Generate Event IDs and Credentials
@@ -159,7 +167,7 @@ export async function POST(request) {
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: 7 * 24 * 60 * 60 // 7 days
+        maxAge: 30 * 24 * 60 * 60 // 30 days
       });
     }
 
