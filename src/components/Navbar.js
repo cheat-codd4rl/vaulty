@@ -1,9 +1,20 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import HostProfileMenu from '@/components/HostProfileMenu';
+import GuestProfileMenu from '@/components/GuestProfileMenu';
 
 export default function Navbar() {
+  const pathname = usePathname();
+  
+  // Basic route sniffing: if it's a guest event page, use guest menu
+  const isGuestRoute = pathname?.startsWith('/e/');
+  
+  // Extract eventId from /e/[id] for the guest menu
+  const eventIdMatch = pathname?.match(/^\/e\/([^/]+)/);
+  const eventId = eventIdMatch ? eventIdMatch[1] : null;
+
   return (
     <div className="topnav">
       <Link href="/" className="brand" aria-label="Vaulty home">
@@ -14,7 +25,11 @@ export default function Navbar() {
         </span>
       </Link>
       <div className="navlinks">
-        <HostProfileMenu />
+        {isGuestRoute && eventId ? (
+          <GuestProfileMenu eventId={eventId} />
+        ) : (
+          <HostProfileMenu />
+        )}
       </div>
     </div>
   );

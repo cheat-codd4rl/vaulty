@@ -32,23 +32,41 @@ export default function GuestPage({ params }) {
   const [pinValue, setPinValue] = useState('');
   const [pinError, setPinError] = useState('');
   const [pinUnlocked, setPinUnlocked] = useState(false);
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [guestNameInput, setGuestNameInput] = useState('');
+  const [submittingName, setSubmittingName] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
+      let currentName = '';
+      let isAuth = false;
+
       // 1. Check Session
       const sessRes = await fetch(`/api/events/${id}/session`);
       if (sessRes.ok) {
         const sessData = await sessRes.json();
         setIsAuthenticated(true);
+        isAuth = true;
         setPinUnlocked(true); // If they have a JWT, they bypass PIN
         if (sessData.claimCode) setSessionClaimCode(sessData.claimCode);
+        currentName = sessData.name || '';
       }
 
       const ev = await getEvent(id);
       setEvent(ev);
+      
+      let needsName = false;
+
       if (ev) {
+        let unlocked = isAuth;
         if (!ev.hasPin && ev.accessMode !== 'pin') {
           setPinUnlocked(true);
+          unlocked = true;
+        }
+        
+        // If they are allowed to see the gallery but have no name, prompt for one
+        if (unlocked && !currentName) {
+          needsName = true;
         }
 
         const ups = await listUploads(id);
@@ -56,6 +74,9 @@ export default function GuestPage({ params }) {
         const ids = await getMyUploadIds(id);
         setMyIds(ids);
       }
+      
+      setShowNameModal(needsName);
+
     } catch (err) {
       console.error('Failed to load event data:', err);
     } finally {
@@ -96,6 +117,30 @@ export default function GuestPage({ params }) {
     } catch (err) {
       setPinError('Failed to verify PIN');
     }
+  };
+
+  const handleNameSubmit = async () => {
+    if (!guestNameInput.trim()) return;
+    setSubmittingName(true);
+    try {
+      const res = await fetch(isAuthenticated ? `/api/events/${id}/guests/name` : '/api/auth/guest', {
+        method: isAuthenticated ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(isAuthenticated ? { name: guestNameInput.trim() } : { eventId: id, name: guestNameInput.trim() })
+      });
+      if (res.ok) {
+        localStorage.setItem(`vaulty_guest_name_${id}`, guestNameInput.trim());
+        setShowNameModal(false);
+        // Fully load the session/gallery as we are now in an authenticated state
+        loadData();
+      } else {
+        const data = await res.json();
+        showToast(data.error || 'Failed to save name');
+      }
+    } catch (err) {
+      showToast('Failed to save name');
+    }
+    setSubmittingName(false);
   };
 
   const handleClaimSubmit = async () => {
@@ -299,6 +344,44 @@ export default function GuestPage({ params }) {
   return (
     <>
       <Navbar />
+      {showNameModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+          padding: '24px'
+        }}>
+          <div style={{
+            background: 'var(--bg)', borderRadius: '24px', padding: '32px',
+            width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '20px',
+            border: '1px solid var(--border)'
+          }}>
+            <div style={{ textAlign: 'center' }}>
+              <h2 style={{ margin: '0 0 8px 0', fontSize: '24px' }}>Welcome!</h2>
+              <p style={{ margin: 0, color: 'var(--text-dim)', fontSize: '15px' }}>
+                What should we call you in the gallery?
+              </p>
+            </div>
+            <input
+              type="text"
+              className="pin-input"
+              placeholder="Your name"
+              value={guestNameInput}
+              onChange={(e) => setGuestNameInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleNameSubmit()}
+              autoFocus
+            />
+            <button
+              className="btn btn-brass btn-block"
+              style={{ height: '56px', fontSize: '16px' }}
+              onClick={handleNameSubmit}
+              disabled={submittingName || !guestNameInput.trim()}
+            >
+              {submittingName ? 'Saving…' : 'Continue'}
+            </button>
+          </div>
+        </div>
+      )}
       <div className="wrap">
         <div className="event-header">
           <div className="sub">{fmtDate(event.date)}</div>

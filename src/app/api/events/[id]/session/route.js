@@ -31,8 +31,10 @@ export async function GET(request, { params }) {
           if (guestDoc.exists) {
             return NextResponse.json({ 
               valid: true, 
+              authenticated: true, // For GuestProfileMenu compatibility
               role: 'guest', 
               guestId: decoded.guestId,
+              name: guestDoc.data().name || '',
               claimCode: guestDoc.data().claimCode 
             });
           }

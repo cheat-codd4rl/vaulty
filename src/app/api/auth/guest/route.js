@@ -50,8 +50,8 @@ export async function POST(request) {
           return NextResponse.json({ error: 'Incorrect PIN' }, { status: 401 });
         }
       }
-    } else if (returningEventId && pin) {
-      // Returning guest flow: Validate PIN for the event
+    } else if (returningEventId && (pin || name)) {
+      // Guest flow: Validate PIN for the event (if required)
       eventRef = adminDb.collection('events').doc(returningEventId);
       const eventDoc = await eventRef.get();
       if (!eventDoc.exists) {
@@ -64,13 +64,13 @@ export async function POST(request) {
       const privateDoc = await eventRef.collection('security').doc('private').get();
       privateData = privateDoc.exists ? privateDoc.data() : null;
 
-      // Rate Limiting Check
+      // Rate Limiting Check (only if PIN is provided/checked)
       const ip = request.headers.get('x-forwarded-for') || 'unknown_ip';
       const ipKey = ip.replace(/[.#$/[\]]/g, '_');
       const rateLimitRef = eventRef.collection('security').doc(`ratelimit_${ipKey}`);
       const rateLimitDoc = await rateLimitRef.get();
       
-      if (rateLimitDoc.exists) {
+      if (rateLimitDoc.exists && pin) {
         const rlData = rateLimitDoc.data();
         if (rlData.attempts >= 5 && rlData.expiresAt > Date.now()) {
           return NextResponse.json({ error: 'Too many attempts, try again later' }, { status: 429 });
@@ -89,6 +89,9 @@ export async function POST(request) {
       };
 
       if (eventData.hasPin || eventData.accessMode === 'pin') {
+        if (!pin) {
+          return NextResponse.json({ error: 'PIN required' }, { status: 401 });
+        }
         if (!privateData || !privateData.pinHash) {
           return NextResponse.json({ error: 'PIN is not set up' }, { status: 400 });
         }
@@ -131,21 +134,24 @@ export async function POST(request) {
       }
 
       // Reset rate limit on success (if no claim code was required to be checked here)
-      if (rateLimitDoc.exists) await rateLimitRef.delete();
+      if (rateLimitDoc.exists && pin) await rateLimitRef.delete();
 
-      // Otherwise, return the guest list for the "Who are you?" screen
-      const guestsSnap = await eventRef.collection('guests').get();
-      const guestList = guestsSnap.docs.map(d => ({
-        id: d.id,
-        name: d.data().name
-      }));
-      
-      return NextResponse.json({ 
-        success: true, 
-        requireClaim: true, 
-        guests: guestList 
-      });
+      // If name is NOT provided, return the guest list for the "Who are you?" screen
+      if (!name) {
+        const guestsSnap = await eventRef.collection('guests').get();
+        const guestList = guestsSnap.docs.map(d => ({
+          id: d.id,
+          name: d.data().name
+        }));
+        
+        return NextResponse.json({ 
+          success: true, 
+          requireClaim: true, 
+          guests: guestList 
+        });
+      }
 
+      // If name IS provided, execution continues past the if/else block to create the guest doc!
     } else {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
