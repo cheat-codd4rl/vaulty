@@ -29,30 +29,38 @@ export default function GuestPage({ params }) {
   const [whoAreYouData, setWhoAreYouData] = useState(null); // { guests: [] }
   const [selectedGuestId, setSelectedGuestId] = useState('');
   const [claimCode, setClaimCode] = useState('');
+  const [pinValue, setPinValue] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [pinUnlocked, setPinUnlocked] = useState(false);
 
   const loadData = useCallback(async () => {
-    // 1. Check Session
-    const sessRes = await fetch(`/api/events/${id}/session`);
-    if (sessRes.ok) {
-      const sessData = await sessRes.json();
-      setIsAuthenticated(true);
-      setPinUnlocked(true); // If they have a JWT, they bypass PIN
-      if (sessData.claimCode) setSessionClaimCode(sessData.claimCode);
-    }
-
-    const ev = await getEvent(id);
-    setEvent(ev);
-    if (ev) {
-      if (!ev.hasPin && ev.accessMode !== 'pin') {
-        setPinUnlocked(true);
+    try {
+      // 1. Check Session
+      const sessRes = await fetch(`/api/events/${id}/session`);
+      if (sessRes.ok) {
+        const sessData = await sessRes.json();
+        setIsAuthenticated(true);
+        setPinUnlocked(true); // If they have a JWT, they bypass PIN
+        if (sessData.claimCode) setSessionClaimCode(sessData.claimCode);
       }
 
-      const ups = await listUploads(id);
-      setUploads(ups);
-      const ids = await getMyUploadIds(id);
-      setMyIds(ids);
+      const ev = await getEvent(id);
+      setEvent(ev);
+      if (ev) {
+        if (!ev.hasPin && ev.accessMode !== 'pin') {
+          setPinUnlocked(true);
+        }
+
+        const ups = await listUploads(id);
+        setUploads(ups);
+        const ids = await getMyUploadIds(id);
+        setMyIds(ids);
+      }
+    } catch (err) {
+      console.error('Failed to load event data:', err);
+    } finally {
+      setLoaded(true);
     }
-    setLoaded(true);
   }, [id]);
 
   useEffect(() => {
