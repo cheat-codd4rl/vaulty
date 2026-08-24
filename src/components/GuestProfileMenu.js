@@ -60,7 +60,13 @@ export default function GuestProfileMenu({ eventId }) {
         localStorage.setItem(`vaulty_guest_name_${eventId}`, editName.trim());
         setIsEditing(false);
       } else {
-        alert('Failed to update name');
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+          alert('Your session has expired. The page will reload so you can rejoin.');
+          window.location.reload();
+        } else {
+          alert(data.error || 'Failed to update name');
+        }
       }
     } catch (err) {
       alert('Failed to update name');

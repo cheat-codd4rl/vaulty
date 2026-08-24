@@ -65,7 +65,8 @@ export default function GuestPage({ params }) {
         }
         
         // If they are allowed to see the gallery but have no name, prompt for one
-        if (unlocked && !currentName) {
+        // (Unless they are the host, who doesn't need a guest name)
+        if (unlocked && !currentName && sessData?.role !== 'host') {
           needsName = true;
         }
 
@@ -402,7 +403,7 @@ export default function GuestPage({ params }) {
           </div>
         )}
 
-        <UploadDropzone eventId={id} uploaderType="guest" onUploadComplete={loadData} />
+        <UploadDropzone eventId={id} event={event} uploaderType="guest" onUploadComplete={loadData} />
 
         {event.moderationMode === 'approval' && (
           <p

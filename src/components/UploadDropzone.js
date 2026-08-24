@@ -55,6 +55,7 @@ async function uploadFile(file, { eventId, uploaderType, deviceToken, collaborat
 
 export default function UploadDropzone({
   eventId,
+  event,
   uploaderType,
   onUploadComplete,
   isPro = false,
@@ -71,19 +72,32 @@ export default function UploadDropzone({
 
   const handleFiles = useCallback(
     async (fileList) => {
-      const event = await getEvent(eventId);
-      if (!event) return;
-      const deviceToken = await getDeviceToken();
       const files = Array.from(fileList);
-
-      for (const file of files) {
+      
+      // Step 1: Immediately populate visual queue before ANY async operations
+      // If the tab was suspended, network requests (like getEvent or Firestore) 
+      // can hang for several seconds while reconnecting. We MUST show UI feedback first.
+      const initialItems = files.map(file => {
         const id = genId('up_');
-        const heic = isHeic(file);
-        const video = isVideoFile(file);
+        return {
+          id,
+          file,
+          heic: isHeic(file),
+          video: isVideoFile(file),
+          qItem: { id, filename: file.name, progress: 0, state: 'processing', thumbnail: null }
+        };
+      });
 
-        // Add to visual queue
-        const qItem = { id, filename: file.name, progress: 0, state: 'processing', thumbnail: null };
-        setQueue((prev) => [qItem, ...prev]);
+      setQueue((prev) => [...initialItems.map(i => i.qItem), ...prev]);
+
+      // Step 2: Fetch prerequisites
+      const ev = event || await getEvent(eventId);
+      if (!ev) return;
+      const deviceToken = await getDeviceToken();
+
+      // Step 3: Process and upload each file
+      for (const item of initialItems) {
+        const { id, file, heic, video } = item;
 
         /* ── Process file (thumbnail, resize) ── */
         setQueue((prev) =>
@@ -232,7 +246,7 @@ export default function UploadDropzone({
 
       if (onUploadComplete) onUploadComplete();
     },
-    [eventId, uploaderType, onUploadComplete, useCloud, collaboratorCode]
+    [eventId, event, uploaderType, onUploadComplete, useCloud, collaboratorCode]
   );
 
   const handleDragEnter = (e) => {
@@ -255,9 +269,9 @@ export default function UploadDropzone({
 
   return (
     <>
-      <div
+      <label
         className={`dropzone ${dragging ? 'drag' : ''}`}
-        onClick={() => inputRef.current?.click()}
+        style={{ display: 'block', cursor: 'pointer' }}
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -284,16 +298,19 @@ export default function UploadDropzone({
             width: '1px',
             height: '1px',
             overflow: 'hidden',
-            pointerEvents: 'none',
+            zIndex: -1,
+          }}
+          onClick={(e) => {
+            // Reset value on click so selecting the same file twice still fires change,
+            // but we avoid doing it synchronously in onChange which invalidates Blobs on Android.
+            e.target.value = '';
           }}
           onChange={(e) => {
             const files = e.target.files;
             if (files && files.length) handleFiles(files);
-            // Reset after reading files so the same file can be re-selected
-            e.target.value = '';
           }}
         />
-      </div>
+      </label>
       {queue.length > 0 && (
         <div className="queue">
           {queue.map((q) => (

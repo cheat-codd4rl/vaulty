@@ -64,6 +64,23 @@ export function middleware(request) {
         return NextResponse.next();
       }
 
+      const referer = request.headers.get('referer');
+      if (referer) {
+        try {
+          const refererUrl = new URL(referer);
+          if (refererUrl.host === host) {
+            return NextResponse.next();
+          }
+        } catch (e) {}
+      }
+
+      // If all modern headers are missing (e.g. older Android WebViews), 
+      // we have to allow it to prevent breaking the app, since standard 
+      // cross-site requests will at least include Origin.
+      if (!origin && !secFetchSite) {
+        return NextResponse.next();
+      }
+
       console.warn(`CSRF protection rejected request to ${request.nextUrl.pathname} from origin ${origin}, sec-fetch-site ${secFetchSite}`);
       return NextResponse.json({ error: 'Forbidden: CSRF protection' }, { status: 403 });
     }

@@ -162,7 +162,7 @@ export default function PhotographerPage({ params }) {
           />
         </div>
 
-        <UploadDropzone eventId={id} uploaderType="photographer" isPro collaboratorCode={code} onUploadComplete={loadData} />
+        <UploadDropzone eventId={id} event={event} uploaderType="photographer" isPro collaboratorCode={code} onUploadComplete={loadData} />
 
         <Gallery
           uploads={uploads}
