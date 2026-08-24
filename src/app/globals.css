@@ -258,6 +258,27 @@ a { color: inherit; }
 .dropdown-menu { position: absolute; top: 48px; right: 0; background: var(--ink-2); border: 1px solid var(--line-strong); border-radius: 12px; padding: 8px; min-width: 220px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); z-index: 100; display: flex; flex-direction: column; gap: 4px; }
 .floating-bar { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--ink-2); border: 1px solid var(--line-strong); border-radius: 24px; padding: 12px 24px; display: flex; gap: 12px; align-items: center; box-shadow: 0 8px 32px rgba(0,0,0,0.6); z-index: 100; }
 
+/* ---------- Event Card Menu ---------- */
+.ecm-trigger {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 50%; border: none; padding: 0;
+  background: rgba(0,0,0,0.35); color: rgba(255,255,255,0.8); cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.ecm-trigger:hover { background: rgba(0,0,0,0.55); color: var(--brass-soft); }
+.ecm-trigger:focus-visible { outline: 2px solid var(--brass-soft); outline-offset: 2px; }
+.ecm-dropdown { top: 36px; right: 0; min-width: 230px; padding: 6px; }
+.ecm-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 9px 12px; border: none; background: none; border-radius: 8px;
+  color: var(--text-dim); font-size: 13.5px; font-family: inherit;
+  cursor: pointer; transition: background 0.15s ease, color 0.15s ease; text-align: left;
+}
+.ecm-item:hover { background: rgba(182,123,50,0.1); color: var(--brass-soft); }
+.ecm-item-danger { color: var(--rust); }
+.ecm-item-danger:hover { background: rgba(177,91,63,0.12); color: var(--rust); }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
 /* share panel */
 .share-panel { display: grid; grid-template-columns: auto 1fr; gap: 32px; padding: 28px; border-radius: var(--radius); background: var(--ink-2); align-items: center; box-shadow: var(--shadow-soft); max-width: 800px; }
 @media (max-width: 640px) { .share-panel { grid-template-columns: 1fr; justify-items: center; text-align: center; gap: 24px; } }

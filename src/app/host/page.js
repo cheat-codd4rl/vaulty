@@ -264,11 +264,6 @@ export default function HostDashboard() {
             {events.map((e) => {
               return (
                 <div key={e.id} style={{ position: 'relative' }}>
-                  {e.status !== 'deleting' && (
-                    <div className="absolute right-3 top-3 z-10">
-                      <EventCardMenu onAction={(action) => handleCardAction(action, e)} workingAction={workingAction} />
-                    </div>
-                  )}
                   <button
                     className={`vault-card ${e.status === 'deleting' ? 'disabled' : ''}`}
                     style={{ opacity: e.status === 'deleting' ? 0.6 : 1, cursor: e.status === 'deleting' ? 'not-allowed' : 'pointer', width: '100%', textAlign: 'left' }}
@@ -276,6 +271,11 @@ export default function HostDashboard() {
                   >
                     <div className="vault-cover">
                       {e.cover && <img src={e.cover} alt="" onError={(evt) => evt.target.style.display = 'none'} />}
+                      {e.status !== 'deleting' && (
+                        <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 5 }}>
+                          <EventCardMenu onAction={(action) => handleCardAction(action, e)} workingAction={workingAction} />
+                        </div>
+                      )}
                     </div>
                     <div className="vault-body">
                       <h3>{e.name}</h3>
