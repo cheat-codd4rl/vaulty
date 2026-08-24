@@ -2,13 +2,17 @@
 
 export default function ConfirmDeleteModal({ eventName, onConfirm, onCancel, isDeleting, error }) {
   return (
-    <div className="modal-overlay" onClick={onCancel} style={{ zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}>
-      <div 
-        className="modal-content" 
+    <div
+      className="modal-overlay"
+      onClick={onCancel}
+      style={{ zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)' }}
+    >
+      <div
+        className="modal-content"
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: 'var(--card-bg)',
-          border: '1px solid var(--line)',
+          background: 'var(--ink-2)',
+          border: '1px solid var(--line-strong)',
           borderRadius: '16px',
           padding: '24px',
           maxWidth: '400px',
@@ -17,32 +21,31 @@ export default function ConfirmDeleteModal({ eventName, onConfirm, onCancel, isD
         }}
       >
         <div style={{ marginBottom: '20px' }}>
-          <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', color: 'var(--ink)' }}>Delete Event</h3>
+          <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', color: 'var(--rust)' }}>Delete Event</h3>
           <p style={{ margin: 0, color: 'var(--text-dim)', fontSize: '14px', lineHeight: 1.5 }}>
-            Are you absolutely sure you want to delete <strong>{eventName}</strong>? This will permanently remove all photos and its Google Drive folder. This cannot be undone.
+            Are you absolutely sure you want to delete <strong style={{ color: 'var(--text)' }}>{eventName}</strong>? This will permanently remove all photos and its Google Drive folder. This cannot be undone.
           </p>
         </div>
         {error && (
-          <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(255, 50, 50, 0.1)', border: '1px solid rgba(255, 50, 50, 0.3)', borderRadius: '8px', color: '#ff6b6b', fontSize: '14px', lineHeight: 1.4 }}>
+          <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(177,91,63,0.12)', border: '1px solid var(--rust)', borderRadius: '8px', color: 'var(--rust)', fontSize: '14px', lineHeight: 1.4 }}>
             {error}
           </div>
         )}
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-          <button 
-            type="button" 
-            className="btn" 
-            onClick={onCancel} 
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={onCancel}
             disabled={isDeleting}
-            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'var(--ink)' }}
           >
             Cancel
           </button>
-          <button 
-            type="button" 
-            className="btn btn-danger" 
-            onClick={onConfirm} 
+          <button
+            type="button"
+            className="btn btn-danger"
+            onClick={onConfirm}
             disabled={isDeleting}
-            style={{ background: 'rgba(255,50,50,0.9)', color: '#fff', border: 'none' }}
+            style={{ background: 'var(--rust)', color: '#fff', borderColor: 'var(--rust)' }}
           >
             {isDeleting ? 'Deleting...' : 'Delete Event'}
           </button>
