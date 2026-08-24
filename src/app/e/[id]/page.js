@@ -383,7 +383,7 @@ export default function GuestPage({ params }) {
             </div>
             <input
               type="text"
-              className="pin-input"
+              className="name-input"
               placeholder="Your name"
               value={guestNameInput}
               onChange={(e) => setGuestNameInput(e.target.value)}
