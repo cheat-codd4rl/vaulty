@@ -39,3 +39,7 @@ export const PLACEHOLDER_VIDEO = svgDataUrl(
 export const PLACEHOLDER_GENERIC = svgDataUrl(
   `<svg xmlns='http://www.w3.org/2000/svg' width='480' height='360'><rect width='100%' height='100%' fill='#242A34'/><text x='50%' y='50%' font-family='sans-serif' font-size='14' fill='#9B9587' text-anchor='middle'>Preview unavailable</text></svg>`
 );
+
+export const PLACEHOLDER_DOCUMENT_VIDEO = svgDataUrl(
+  `<svg xmlns='http://www.w3.org/2000/svg' width='480' height='360'><rect width='100%' height='100%' fill='#1B1F26'/><g transform='translate(180, 100)' stroke='#C9A15A' fill='none' stroke-width='4' stroke-linejoin='round'><path d='M20 0 H80 V120 H0 V20 Z'/><path d='M0 20 H20 V0'/><circle cx='40' cy='60' r='20'/><polygon points='35,50 35,70 50,60' fill='#C9A15A'/></g><text x='50%' y='260' font-family='sans-serif' font-size='14' fill='#9B9587' text-anchor='middle'>Video File</text></svg>`
+);

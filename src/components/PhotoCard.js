@@ -1,6 +1,6 @@
 'use client';
 
-import { PLACEHOLDER_GENERIC, PLACEHOLDER_VIDEO, fmtBytes } from '@/lib/helpers';
+import { PLACEHOLDER_GENERIC, PLACEHOLDER_VIDEO, PLACEHOLDER_DOCUMENT_VIDEO, fmtBytes } from '@/lib/helpers';
 import { getSessionFile } from '@/lib/store';
 
 export default function PhotoCard({
@@ -39,8 +39,8 @@ export default function PhotoCard({
       <div className="corner tl"></div>
       <div className="corner br"></div>
       {badge}
-      <img src={u.thumbnail || PLACEHOLDER_GENERIC} alt={u.filename} />
-      {playbadge}
+      <img src={u.thumbnail || (u.isVideo ? PLACEHOLDER_DOCUMENT_VIDEO : PLACEHOLDER_GENERIC)} alt={u.filename} />
+      {playbadge && !u.thumbnail ? null : playbadge}
       {!selectable && (
         <div className="actions">
           <button onClick={handleDownload} title="Download" aria-label="Download">

@@ -42,6 +42,21 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // SSRF Validation: Ensure blobUrl belongs to Vercel Blob store
+    try {
+      const parsedUrl = new URL(blobUrl);
+      if (parsedUrl.protocol !== 'https:' || !parsedUrl.hostname.endsWith('.public.blob.vercel-storage.com')) {
+        return NextResponse.json({ error: 'Invalid blob URL source' }, { status: 400 });
+      }
+    } catch (e) {
+      return NextResponse.json({ error: 'Malformed blob URL' }, { status: 400 });
+    }
+
+    // MIME Validation: Prevent accidental bypass (only accept image/ or video/)
+    if (typeof mimeType !== 'string' || (!mimeType.startsWith('image/') && !mimeType.startsWith('video/'))) {
+      return NextResponse.json({ error: 'Unsupported file type' }, { status: 415 });
+    }
+
     const eventSnap = await adminDb.collection('events').doc(eventId).get();
     if (!eventSnap.exists) {
       return NextResponse.json({ error: 'Event not found' }, { status: 404 });

@@ -3,7 +3,7 @@
 import { useRef, useState, useCallback } from 'react';
 import { upload } from '@vercel/blob/client';
 import { useToast } from '@/components/Toast';
-import { genId, sleep, PLACEHOLDER_HEIC, PLACEHOLDER_VIDEO, PLACEHOLDER_GENERIC } from '@/lib/helpers';
+import { genId, sleep, PLACEHOLDER_HEIC, PLACEHOLDER_VIDEO, PLACEHOLDER_GENERIC, PLACEHOLDER_DOCUMENT_VIDEO } from '@/lib/helpers';
 import { isHeic, isVideoFile, processImageFile, processVideoFile } from '@/lib/fileProcessing';
 import { addUploadRecord, getEvent, getDeviceToken, setSessionFile, saveMyUploadId } from '@/lib/store';
 import { isFirebaseConfigured } from '@/lib/firebase';
@@ -72,18 +72,28 @@ export default function UploadDropzone({
 
   const handleFiles = useCallback(
     async (fileList) => {
-      const files = Array.from(fileList);
+      const DOCUMENT_MODE_THRESHOLD = 200 * 1024 * 1024;
+      const MAX_FILE_SIZE = 1.5 * 1024 * 1024 * 1024;
+
+      const validFiles = [];
+      for (const file of Array.from(fileList)) {
+        if (file.size > MAX_FILE_SIZE) {
+          showToast(`${file.name} exceeds the 1.5 GB limit`, 'error');
+          continue;
+        }
+        validFiles.push(file);
+      }
+      if (validFiles.length === 0) return;
       
       // Step 1: Immediately populate visual queue before ANY async operations
-      // If the tab was suspended, network requests (like getEvent or Firestore) 
-      // can hang for several seconds while reconnecting. We MUST show UI feedback first.
-      const initialItems = files.map(file => {
+      const initialItems = validFiles.map(file => {
         const id = genId('up_');
         return {
           id,
           file,
           heic: isHeic(file),
           video: isVideoFile(file),
+          documentMode: isVideoFile(file) && file.size > DOCUMENT_MODE_THRESHOLD,
           qItem: { id, filename: file.name, progress: 0, state: 'processing', thumbnail: null }
         };
       });
@@ -95,154 +105,171 @@ export default function UploadDropzone({
       if (!ev) return;
       const deviceToken = await getDeviceToken();
 
-      // Step 3: Process and upload each file
-      for (const item of initialItems) {
-        const { id, file, heic, video } = item;
-
-        /* ── Process file (thumbnail, resize) ── */
-        setQueue((prev) =>
-          prev.map((q) =>
-            q.id === id
-              ? { ...q, state: video ? 'reading frame' : heic ? 'converting' : 'processing' }
-              : q
-          )
-        );
-
-        let processedBlob = file;
-        let thumbnail = null;
-        let duration = 0;
+      // Helper function to process and upload a single item
+      const processItem = async (item) => {
+        const { id, file, heic, video, documentMode } = item;
         try {
-          if (heic) {
-            thumbnail = PLACEHOLDER_HEIC;
-          } else if (video) {
-            const res = await processVideoFile(file);
-            thumbnail = res.thumbDataUrl || PLACEHOLDER_VIDEO;
-            duration = res.duration;
-          } else {
-            const res = await processImageFile(file);
-            thumbnail = res.thumbDataUrl;
-            processedBlob = new File([res.blob], file.name, { type: res.blob.type });
-            setSessionFile(id, { file, blob: res.blob });
-          }
-        } catch (e) {
-          thumbnail = video ? PLACEHOLDER_VIDEO : PLACEHOLDER_GENERIC;
-        }
-
-        /* ── Upload via Blob relay (if cloud is configured) ── */
-        if (useCloud) {
-          try {
-            setQueue((prev) =>
-              prev.map((q) => (q.id === id ? { ...q, state: 'uploading', progress: 0 } : q))
-            );
-
-            const uploadDoc = await uploadFile(processedBlob, {
-              eventId,
-              uploaderType,
-              deviceToken,
-              collaboratorCode,
-              thumbnail,
-              onProgress: (pct) => {
-                setQueue((prev) =>
-                  prev.map((q) => (q.id === id ? { ...q, progress: pct } : q))
-                );
-              },
-            });
-
-            // Success — update queue with server-determined status
-            setQueue((prev) =>
-              prev.map((q) =>
-                q.id === id
-                  ? {
-                      ...q,
-                      progress: 100,
-                      thumbnail: thumbnail,
-                      state: uploadDoc.status === 'pending' ? 'awaiting review' : 'done',
-                    }
-                  : q
-              )
-            );
-            
-            saveMyUploadId(eventId, uploadDoc.id, uploadDoc.deleteToken);
-          } catch (err) {
-            // Cloud IS configured but this request FAILED — surface the error,
-            // don't silently degrade to local-only mode. A transient failure
-            // should be a visible retry-able error, not silent data loss.
-            console.error('Upload failed:', err);
-            showToast(err.message || 'Upload failed', 'error');
-            if (err.message && err.message.includes('Service Configuration Error')) {
-              setQueue((prev) =>
-                prev.map((q) =>
-                  q.id === id
-                    ? { ...q, progress: 0, state: 'temporarily unavailable' }
-                    : q
-                )
-              );
-            } else {
-              setQueue((prev) =>
-                prev.map((q) =>
-                  q.id === id
-                    ? { ...q, progress: 0, state: 'failed — tap to retry' }
-                    : q
-                )
-              );
-            }
-            await sleep(4000);
-            setQueue((prev) => prev.filter((q) => q.id !== id));
-            continue;
-          }
-        } else {
-          /* ── Local-only mode (no cloud config): simulate progress ── */
-          const record = {
-            id,
-            eventId,
-            uploaderType,
-            deviceToken,
-            filename: file.name,
-            size: file.size,
-            isVideo: video,
-            isHeic: heic,
-            thumbnail,
-            fileUrl: null,
-            exifStripped: !heic && !video,
-            duration,
-            status:
-              uploaderType === 'photographer'
-                ? 'approved'
-                : event.moderationMode === 'approval'
-                  ? 'pending'
-                  : 'approved',
-            createdAt: Date.now(),
-          };
-
-          setSessionFile(id, { file, blob: processedBlob !== file ? processedBlob : null });
-
-          const steps = 9;
-          const stepTime = Math.min(160, Math.max(35, file.size / 60000));
-          for (let s = 1; s <= steps; s++) {
-            await sleep(stepTime);
-            setQueue((prev) =>
-              prev.map((q) => (q.id === id ? { ...q, progress: Math.round((s / steps) * 100) } : q))
-            );
-          }
-          await addUploadRecord(record);
-
+          /* ── Process file (thumbnail, resize) ── */
           setQueue((prev) =>
             prev.map((q) =>
               q.id === id
-                ? {
-                    ...q,
-                    progress: 100,
-                    thumbnail,
-                    state: record.status === 'pending' ? 'awaiting review' : 'done',
-                  }
+                ? { ...q, state: documentMode ? 'preparing' : video ? 'reading frame' : heic ? 'converting' : 'processing' }
                 : q
             )
           );
-        }
 
-        await sleep(220);
-        setQueue((prev) => prev.filter((q) => q.id !== id));
-      }
+          let processedBlob = file;
+          let thumbnail = null;
+          let duration = 0;
+          try {
+            if (documentMode) {
+              thumbnail = PLACEHOLDER_DOCUMENT_VIDEO; // Skip client-side processing for huge videos
+            } else if (heic) {
+              thumbnail = PLACEHOLDER_HEIC;
+            } else if (video) {
+              const res = await processVideoFile(file);
+              thumbnail = res.thumbDataUrl || PLACEHOLDER_VIDEO;
+              duration = res.duration;
+            } else {
+              const res = await processImageFile(file);
+              thumbnail = res.thumbDataUrl;
+              processedBlob = new File([res.blob], file.name, { type: res.blob.type });
+              setSessionFile(id, { file, blob: res.blob });
+            }
+          } catch (e) {
+            thumbnail = video ? PLACEHOLDER_VIDEO : PLACEHOLDER_GENERIC;
+          }
+
+          /* ── Upload via Blob relay (if cloud is configured) ── */
+          if (useCloud) {
+            try {
+              setQueue((prev) =>
+                prev.map((q) => (q.id === id ? { ...q, state: 'uploading', progress: 0 } : q))
+              );
+
+              const uploadDoc = await uploadFile(processedBlob, {
+                eventId,
+                uploaderType,
+                deviceToken,
+                collaboratorCode,
+                thumbnail,
+                onProgress: (pct) => {
+                  setQueue((prev) =>
+                    prev.map((q) => (q.id === id ? { ...q, progress: pct } : q))
+                  );
+                },
+              });
+
+              // Success — update queue with server-determined status
+              setQueue((prev) =>
+                prev.map((q) =>
+                  q.id === id
+                    ? {
+                        ...q,
+                        progress: 100,
+                        thumbnail: thumbnail,
+                        state: uploadDoc.status === 'pending' ? 'awaiting review' : 'done',
+                      }
+                    : q
+                )
+              );
+              
+              saveMyUploadId(eventId, uploadDoc.id, uploadDoc.deleteToken);
+            } catch (err) {
+              console.error('Upload failed:', err);
+              showToast(err.message || 'Upload failed', 'error');
+              if (err.message && err.message.includes('Service Configuration Error')) {
+                setQueue((prev) =>
+                  prev.map((q) =>
+                    q.id === id ? { ...q, progress: 0, state: 'temporarily unavailable' } : q
+                  )
+                );
+              } else {
+                setQueue((prev) =>
+                  prev.map((q) =>
+                    q.id === id ? { ...q, progress: 0, state: 'failed — tap to retry' } : q
+                  )
+                );
+              }
+              await sleep(4000);
+              setQueue((prev) => prev.filter((q) => q.id !== id));
+              return; // End this item's processing here
+            }
+          } else {
+            /* ── Local-only mode (no cloud config): simulate progress ── */
+            const record = {
+              id,
+              eventId,
+              uploaderType,
+              deviceToken,
+              filename: file.name,
+              size: file.size,
+              isVideo: video,
+              isHeic: heic,
+              thumbnail,
+              fileUrl: null,
+              exifStripped: !heic && !video,
+              duration,
+              status: uploaderType === 'photographer' ? 'approved' : event.moderationMode === 'approval' ? 'pending' : 'approved',
+              createdAt: Date.now(),
+            };
+
+            setSessionFile(id, { file, blob: processedBlob !== file ? processedBlob : null });
+
+            const steps = 9;
+            const stepTime = Math.min(160, Math.max(35, file.size / 60000));
+            for (let s = 1; s <= steps; s++) {
+              await sleep(stepTime);
+              setQueue((prev) =>
+                prev.map((q) => (q.id === id ? { ...q, progress: Math.round((s / steps) * 100) } : q))
+              );
+            }
+            await addUploadRecord(record);
+
+            setQueue((prev) =>
+              prev.map((q) =>
+                q.id === id
+                  ? { ...q, progress: 100, thumbnail, state: record.status === 'pending' ? 'awaiting review' : 'done' }
+                  : q
+              )
+            );
+          }
+
+          await sleep(220);
+          setQueue((prev) => prev.filter((q) => q.id !== id));
+        } catch (e) {
+          console.error('Unhandled item processing error:', e);
+          setQueue((prev) =>
+            prev.map((q) => (q.id === id ? { ...q, progress: 0, state: 'failed' } : q))
+          );
+          await sleep(4000);
+          setQueue((prev) => prev.filter((q) => q.id !== id));
+        }
+      };
+
+      // Define our pool runner logic
+      const runPool = async (items, workerCount) => {
+        let index = 0;
+        const worker = async () => {
+          while (true) {
+            const currentIndex = index++;
+            if (currentIndex >= items.length) return;
+            await processItem(items[currentIndex]);
+          }
+        };
+        await Promise.allSettled(
+          Array.from({ length: Math.min(workerCount, items.length) }, () => worker())
+        );
+      };
+
+      const images = initialItems.filter(i => !i.video);
+      const videos = initialItems.filter(i => i.video);
+
+      // Step 3: Run dual-pool execution
+      await Promise.all([
+        runPool(images, 3),
+        runPool(videos, 1)
+      ]);
 
       if (onUploadComplete) onUploadComplete();
     },
