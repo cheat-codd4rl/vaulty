@@ -14,37 +14,73 @@ export function processImageFile(file) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
+    
+    // Safety timeout in case image never loads or errors
+    const timeout = setTimeout(() => {
+      URL.revokeObjectURL(url);
+      img.src = '';
+      reject(new Error('Image processing timed out'));
+    }, 15000);
+
     img.onload = () => {
-      const maxDim = 2200;
-      let w = img.naturalWidth, h = img.naturalHeight;
-      const scale = Math.min(1, maxDim / Math.max(w, h));
-      w = Math.max(1, Math.round(w * scale));
-      h = Math.max(1, Math.round(h * scale));
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-      canvas.toBlob(
-        (blob) => {
-          URL.revokeObjectURL(url);
-          if (!blob) {
-            reject(new Error('encode failed'));
-            return;
-          }
-          const tW = 480,
-            tH = Math.max(1, Math.round(h * (tW / w)));
-          const tCanvas = document.createElement('canvas');
-          tCanvas.width = tW;
-          tCanvas.height = tH;
-          tCanvas.getContext('2d').drawImage(canvas, 0, 0, tW, tH);
-          resolve({ blob, thumbDataUrl: tCanvas.toDataURL('image/jpeg', 0.62), width: w, height: h });
-        },
-        'image/jpeg',
-        0.88
-      );
+      clearTimeout(timeout);
+      try {
+        const maxDim = 2200;
+        let w = img.naturalWidth, h = img.naturalHeight;
+        const scale = Math.min(1, maxDim / Math.max(w, h));
+        w = Math.max(1, Math.round(w * scale));
+        h = Math.max(1, Math.round(h * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Could not get canvas context');
+        ctx.drawImage(img, 0, 0, w, h);
+        
+        // Free image memory immediately after drawing
+        img.src = '';
+        
+        canvas.toBlob(
+          (blob) => {
+            URL.revokeObjectURL(url);
+            if (!blob) {
+              reject(new Error('encode failed'));
+              canvas.width = 0; canvas.height = 0;
+              return;
+            }
+            try {
+              const tW = 480,
+                tH = Math.max(1, Math.round(h * (tW / w)));
+              const tCanvas = document.createElement('canvas');
+              tCanvas.width = tW;
+              tCanvas.height = tH;
+              const tCtx = tCanvas.getContext('2d');
+              if (tCtx) tCtx.drawImage(canvas, 0, 0, tW, tH);
+              const thumbDataUrl = tCanvas.toDataURL('image/jpeg', 0.62);
+              
+              canvas.width = 0; canvas.height = 0;
+              tCanvas.width = 0; tCanvas.height = 0;
+              
+              resolve({ blob, thumbDataUrl, width: w, height: h });
+            } catch (err) {
+              reject(err);
+              canvas.width = 0; canvas.height = 0;
+            }
+          },
+          'image/jpeg',
+          0.88
+        );
+      } catch (err) {
+        URL.revokeObjectURL(url);
+        img.src = '';
+        reject(err);
+      }
     };
     img.onerror = () => {
+      clearTimeout(timeout);
       URL.revokeObjectURL(url);
+      img.src = '';
       reject(new Error('decode failed'));
     };
     img.src = url;
@@ -77,8 +113,12 @@ export function processVideoFile(file) {
         const c = document.createElement('canvas');
         c.width = video.videoWidth || 480;
         c.height = video.videoHeight || 270;
-        c.getContext('2d').drawImage(video, 0, 0, c.width, c.height);
-        finish(c.toDataURL('image/jpeg', 0.6), video.duration);
+        const ctx = c.getContext('2d');
+        if (ctx) ctx.drawImage(video, 0, 0, c.width, c.height);
+        const dataUrl = c.toDataURL('image/jpeg', 0.6);
+        c.width = 0;
+        c.height = 0;
+        finish(dataUrl, video.duration);
       } catch (e) {
         finish(null, video.duration);
       }
