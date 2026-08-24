@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/Toast';
 import AbsoluteThemeToggle from '@/components/AbsoluteThemeToggle';
@@ -12,10 +12,46 @@ export default function HostLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isChecking, setIsChecking] = useState(true);
+  
+  useEffect(() => {
+    fetch('/api/host/me')
+      .then(res => res.json())
+      .then(data => {
+        if (data.authenticated) {
+          router.push('/host');
+        } else {
+          setIsChecking(false);
+        }
+      })
+      .catch(() => {
+        setIsChecking(false);
+      });
+  }, [router]);
   
   const [requiresOtp, setRequiresOtp] = useState(false);
   const [hostId, setHostId] = useState('');
   const [otp, setOtp] = useState('');
+
+  if (isChecking) {
+    return (
+      <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 24px', background: 'var(--ink)' }}>
+        <AbsoluteThemeToggle />
+        <div style={{ width: '100%', maxWidth: '380px', display: 'flex', flexDirection: 'column', gap: '32px', padding: '48px 0', margin: 'auto' }}>
+          <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div className="skeleton" style={{ width: '96px', height: '96px', margin: '0 auto 16px', borderRadius: '18px' }}></div>
+            <div className="skeleton" style={{ width: '140px', height: '28px', margin: '0 0 8px 0', borderRadius: '8px' }}></div>
+            <div className="skeleton" style={{ width: '200px', height: '16px', borderRadius: '8px' }}></div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div className="skeleton" style={{ height: '56px', borderRadius: '12px' }}></div>
+            <div className="skeleton" style={{ height: '56px', borderRadius: '12px' }}></div>
+            <div className="skeleton" style={{ height: '56px', borderRadius: '12px' }}></div>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   const handleLogin = async (e) => {
     e.preventDefault();
