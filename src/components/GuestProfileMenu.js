@@ -158,6 +158,22 @@ export default function GuestProfileMenu({ eventId }) {
             <ThemeToggle />
           </div>
           
+          <div style={{ borderTop: '1px solid var(--line-strong)', marginTop: '4px', paddingTop: '4px' }}>
+            <button 
+              onClick={() => router.push('/')}
+              className="btn btn-ghost btn-block" 
+              style={{ justifyContent: 'flex-start', height: '40px', padding: '0 12px' }}
+            >
+              Join Another Event
+            </button>
+            <button 
+              onClick={handleLeave}
+              className="btn btn-ghost btn-block" 
+              style={{ justifyContent: 'flex-start', height: '40px', padding: '0 12px', color: 'var(--rust)' }}
+            >
+              Log Out
+            </button>
+          </div>
         </div>
       )}
     </div>
