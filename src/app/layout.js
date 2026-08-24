@@ -10,6 +10,9 @@ export const metadata = {
     shortcut: '/vaulty-dark-40.svg',
     apple: '/vaulty-dark-128.svg',
   },
+  verification: {
+    google: '96CfmH3KBIn3J6XaqVJXjT2L-Vyr7SW8bOmJxmqfk18',
+  },
 };
 
 import { Source_Serif_4 } from 'next/font/google';
