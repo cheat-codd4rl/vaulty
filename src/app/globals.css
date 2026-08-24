@@ -310,6 +310,7 @@ a { color: inherit; }
 
 /* ---------- Dropzone ---------- */
 .dropzone {
+  position: relative;
   border: 1.5px dashed var(--line-strong); border-radius: var(--radius); padding: 40px 24px; text-align: center;
   cursor: pointer; transition: all .2s ease; margin-bottom: 16px; background: var(--ink-2);
 }

@@ -275,9 +275,21 @@ export default function UploadDropzone({
           type="file"
           accept="image/*,video/mp4,video/quicktime"
           multiple
-          style={{ display: 'none' }}
+          style={{
+            // DO NOT use display:none — iOS Safari won't fire the change event
+            // when a display:none input is triggered via .click(). Use accessible
+            // visually-hidden instead: keeps it in the layout/render tree.
+            opacity: 0,
+            position: 'absolute',
+            width: '1px',
+            height: '1px',
+            overflow: 'hidden',
+            pointerEvents: 'none',
+          }}
           onChange={(e) => {
-            if (e.target.files.length) handleFiles(e.target.files);
+            const files = e.target.files;
+            if (files && files.length) handleFiles(files);
+            // Reset after reading files so the same file can be re-selected
             e.target.value = '';
           }}
         />
