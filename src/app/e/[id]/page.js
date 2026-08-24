@@ -41,11 +41,12 @@ export default function GuestPage({ params }) {
     try {
       let currentName = '';
       let isAuth = false;
+      let sessData = null;
 
       // 1. Check Session
       const sessRes = await fetch(`/api/events/${id}/session`);
       if (sessRes.ok) {
-        const sessData = await sessRes.json();
+        sessData = await sessRes.json();
         setIsAuthenticated(true);
         isAuth = true;
         setPinUnlocked(true); // If they have a JWT, they bypass PIN
