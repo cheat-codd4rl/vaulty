@@ -26,7 +26,7 @@ function getOAuth2Client() {
   return client;
 }
 
-function getDriveClient() {
+export function getDriveClient() {
   return google.drive({ version: 'v3', auth: getOAuth2Client() });
 }
 

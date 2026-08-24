@@ -243,50 +243,26 @@ export default function HostEventPage({ params }) {
   };
 
   const handleDownload = async (uploadsToDownload) => {
-    const JSZip = (await import('jszip')).default;
     if (!uploadsToDownload || !uploadsToDownload.length) {
       showToast('Nothing to download yet');
       return;
     }
-    showToast('Building zip…');
-    const zip = new JSZip();
-    let count = 0;
 
-    for (const u of uploadsToDownload) {
-      try {
-        const url = u.downloadUrl || u.viewUrl || u.fileUrl;
-        if (url) {
-          const res = await fetch(url);
-          if (res.ok) {
-            const blob = await res.blob();
-            zip.file(u.filename, blob);
-            count++;
-            continue;
-          }
-        }
-        // Fall back to in-memory session blobs
-        const sess = getSessionFile(u.id);
-        if (sess && (sess.blob || sess.file)) {
-          zip.file(u.filename, sess.blob || sess.file);
-          count++;
-        }
-      } catch {
-        /* skip failed files */
-      }
+    // Determine if we are downloading all uploads or a subset
+    // Hosts can see pending too, but if they hit "Download all" on the main tab it's usually all approved
+    // Actually, Gallery.js passes `approved` if on the main tab.
+    const isAll = uploadsToDownload.length === uploads.filter(u => u.status === 'approved').length;
+    let url = `/api/v1/events/${id}/download-zip`;
+    
+    if (isAll) {
+      url += '?all=true';
+    } else {
+      const ids = uploadsToDownload.map((u) => u.id).join(',');
+      url += `?ids=${ids}`;
     }
 
-    if (!count) {
-      showToast('No files available for download');
-      return;
-    }
-    const blob = await zip.generateAsync({ type: 'blob' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'vaulty-photos.zip';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    showToast('Zip downloaded (' + count + ' file' + (count === 1 ? '' : 's') + ')');
+    showToast('Starting download...');
+    window.location.href = url;
   };
 
   if (!loaded)

@@ -133,8 +133,8 @@ export default function UploadDropzone({
             } else {
               const res = await processImageFile(file);
               thumbnail = res.thumbDataUrl;
-              processedBlob = new File([res.blob], file.name, { type: res.blob.type });
-              setSessionFile(id, { file, blob: res.blob });
+              processedBlob = file; // Upload original bytes
+              setSessionFile(id, { file, blob: res.blob }); // UI preview can use resized blob
             }
           } catch (e) {
             thumbnail = video ? PLACEHOLDER_VIDEO : PLACEHOLDER_GENERIC;
