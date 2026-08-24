@@ -190,7 +190,7 @@ export default function Gallery({
               selectable={isSelecting}
               selected={selectedIds.includes(u.id)}
               onSelect={handleCardSelect}
-              onDownload={downloadFile}
+              onDownload={onDownload}
               onDelete={
                 (isHost || myUploadIds.includes(u.id)) && onDelete && tab !== 'review'
                   ? onDelete

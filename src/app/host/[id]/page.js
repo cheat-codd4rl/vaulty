@@ -243,21 +243,21 @@ export default function HostEventPage({ params }) {
   };
 
   const handleDownload = async (uploadsToDownload) => {
-    if (!uploadsToDownload || !uploadsToDownload.length) {
+    // Convert single object to array if needed
+    const items = Array.isArray(uploadsToDownload) ? uploadsToDownload : (uploadsToDownload ? [uploadsToDownload] : []);
+
+    if (!items.length) {
       showToast('Nothing to download yet');
       return;
     }
 
-    // Determine if we are downloading all uploads or a subset
-    // Hosts can see pending too, but if they hit "Download all" on the main tab it's usually all approved
-    // Actually, Gallery.js passes `approved` if on the main tab.
-    const isAll = uploadsToDownload.length === uploads.filter(u => u.status === 'approved').length;
+    const isAll = items.length === uploads.filter(u => u.status === 'approved').length;
     let url = `/api/v1/events/${id}/download-zip`;
     
     if (isAll) {
       url += '?all=true';
     } else {
-      const ids = uploadsToDownload.map((u) => u.id).join(',');
+      const ids = items.map((u) => u.id).join(',');
       url += `?ids=${ids}`;
     }
 

@@ -23,8 +23,13 @@ export default function PhotoCard({
   const playbadge = u.isVideo ? <span className="playbadge">▶</span> : null;
 
   const handleDownload = (e) => {
+    console.log('PhotoCard handleDownload clicked for', u.id);
     e.stopPropagation();
-    if (!onDownload) return;
+    if (!onDownload) {
+      console.log('PhotoCard onDownload is missing!');
+      return;
+    }
+    console.log('PhotoCard calling onDownload...');
     onDownload(u);
   };
 

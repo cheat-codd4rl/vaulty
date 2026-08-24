@@ -64,7 +64,7 @@ export default function UploadDropzone({
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [queue, setQueue] = useState([]);
-  const { showToast } = useToast();
+  const showToast = useToast();
 
   // "Cloud not configured" (no env vars, local dev) vs "cloud is configured"
   // are different situations. We decide this once at mount, not per-request.
@@ -143,6 +143,7 @@ export default function UploadDropzone({
           /* ── Upload via Blob relay (if cloud is configured) ── */
           if (useCloud) {
             try {
+              console.log('Setting state to uploading for', id);
               setQueue((prev) =>
                 prev.map((q) => (q.id === id ? { ...q, state: 'uploading', progress: 0 } : q))
               );
@@ -160,6 +161,7 @@ export default function UploadDropzone({
                 },
               });
 
+              console.log('Upload to server finished:', uploadDoc);
               // Success — update queue with server-determined status
               setQueue((prev) =>
                 prev.map((q) =>
@@ -176,7 +178,7 @@ export default function UploadDropzone({
               
               saveMyUploadId(eventId, uploadDoc.id, uploadDoc.deleteToken);
             } catch (err) {
-              console.error('Upload failed:', err);
+              console.error('Upload failed with error:', err);
               showToast(err.message || 'Upload failed', 'error');
               if (err.message && err.message.includes('Service Configuration Error')) {
                 setQueue((prev) =>

@@ -58,6 +58,7 @@ export async function GET(request, { params }) {
     }
     
     if (!isHost && !isGuest) {
+      console.log('download-zip Unauthorized! eventId:', eventId, 'hostCookie:', !!hostCookie, 'guestCookie:', !!guestCookie);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -142,14 +143,30 @@ export async function GET(request, { params }) {
       }
     }
 
-    const zipStream = zip.generateNodeStream({ type: 'nodebuffer', streamFiles: true });
-    const webStream = nodeStreamToReadableStream(zipStream);
-
+    const archive = zip.generateNodeStream({ streamFiles: true, compression: 'STORE' });
+    
+    const webStream = new ReadableStream({
+      start(controller) {
+        archive.on('data', chunk => {
+          // console.log(`ZIP chunk: ${chunk.length} bytes`);
+          controller.enqueue(chunk);
+        });
+        archive.on('end', () => {
+          console.log('ZIP stream ended successfully');
+          controller.close();
+        });
+        archive.on('error', err => {
+          console.error('ZIP stream error:', err);
+          controller.error(err);
+        });
+      }
+    });
+    
     const headers = new Headers();
     headers.set('Content-Type', 'application/zip');
     headers.set('Content-Disposition', `attachment; filename="vaulty-${eventId}-files.zip"`);
     
-    return new Response(webStream, { headers });
+    return new NextResponse(webStream, { status: 200, headers });
   } catch (err) {
     console.error('ZIP streaming error:', err);
     return NextResponse.json({ error: 'Failed to generate ZIP' }, { status: 500 });
