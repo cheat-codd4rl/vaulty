@@ -224,8 +224,23 @@ export async function listUploads(eventId) {
   return arr;
 }
 
-
-
+export async function subscribeToUploads(eventId, callback) {
+  const db = await getDb();
+  if (db) {
+    const { collection, onSnapshot, orderBy, query } = await firestoreModules();
+    const q = query(
+      collection(db, 'events', eventId, 'uploads'),
+      orderBy('createdAt', 'desc')
+    );
+    return onSnapshot(q, (snap) => {
+      const results = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      callback(results);
+    });
+  }
+  
+  // Fallback: just return empty unsubscribe function if no DB
+  return () => {};
+}
 export async function deleteUploadRecord(eventId, id) {
   const db = await getDb();
   if (db) {

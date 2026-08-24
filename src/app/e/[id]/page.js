@@ -10,6 +10,7 @@ import { useToast } from '@/components/Toast';
 import {
   getEvent,
   listUploads,
+  subscribeToUploads,
   getMyUploadIds,
   deleteUploadRecord,
   deleteSessionFile,
@@ -87,7 +88,23 @@ export default function GuestPage({ params }) {
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    let unsubscribe = null;
+    let isSubscribed = true;
+    
+    // Subscribe to real-time upload updates
+    subscribeToUploads(id, (newUploads) => {
+      if (isSubscribed) {
+        setUploads(newUploads);
+      }
+    }).then(unsub => {
+      unsubscribe = unsub;
+    }).catch(err => console.error('Subscription failed:', err));
+
+    return () => {
+      isSubscribed = false;
+      if (unsubscribe) unsubscribe();
+    };
+  }, [loadData, id]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

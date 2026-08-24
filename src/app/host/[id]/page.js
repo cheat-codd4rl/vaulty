@@ -12,6 +12,7 @@ import {
   getEvent,
   updateEvent,
   listUploads,
+  subscribeToUploads,
   deleteSessionFile,
   getSessionFile,
 } from '@/lib/store';
@@ -95,7 +96,23 @@ export default function HostEventPage({ params }) {
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+    let unsubscribe = null;
+    let isSubscribed = true;
+    
+    // Subscribe to real-time upload updates
+    subscribeToUploads(id, (newUploads) => {
+      if (isSubscribed) {
+        setUploads(newUploads);
+      }
+    }).then(unsub => {
+      unsubscribe = unsub;
+    }).catch(err => console.error('Subscription failed:', err));
+
+    return () => {
+      isSubscribed = false;
+      if (unsubscribe) unsubscribe();
+    };
+  }, [loadData, id]);
 
   // Poll guest roster every 15 seconds
   useEffect(() => {
