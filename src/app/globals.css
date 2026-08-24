@@ -267,7 +267,7 @@ a { color: inherit; }
 }
 .ecm-trigger:hover { background: rgba(0,0,0,0.55); color: var(--brass-soft); }
 .ecm-trigger:focus-visible { outline: 2px solid var(--brass-soft); outline-offset: 2px; }
-.ecm-dropdown { top: 36px; right: 0; min-width: 230px; padding: 6px; }
+.ecm-dropdown { min-width: 234px; padding: 6px; }
 .ecm-item {
   display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 9px 12px; border: none; background: none; border-radius: 8px;
