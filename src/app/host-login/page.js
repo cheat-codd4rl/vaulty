@@ -169,6 +169,9 @@ export default function HostLogin() {
             <button type="button" onClick={() => router.push('/')} style={{ background: 'none', border: 'none', color: 'var(--text-faint)', fontSize: '13px', cursor: 'pointer', marginTop: '6px' }}>
               ← Back home
             </button>
+            <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-faint)', marginTop: '8px' }}>
+              By continuing, you agree to our <a href="/terms" style={{ color: 'inherit', textDecoration: 'underline' }}>Terms of Service</a> and <a href="/privacy" style={{ color: 'inherit', textDecoration: 'underline' }}>Privacy Policy</a>.
+            </p>
           </form>
         ) : (
           <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -191,6 +194,9 @@ export default function HostLogin() {
             <button type="button" onClick={() => setRequiresOtp(false)} style={{ background: 'none', border: 'none', color: 'var(--text-faint)', fontSize: '13px', cursor: 'pointer', marginTop: '6px' }}>
               ← Back to login
             </button>
+            <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--text-faint)', marginTop: '8px' }}>
+              By continuing, you agree to our <a href="/terms" style={{ color: 'inherit', textDecoration: 'underline' }}>Terms of Service</a> and <a href="/privacy" style={{ color: 'inherit', textDecoration: 'underline' }}>Privacy Policy</a>.
+            </p>
           </form>
         )}
       </div>
