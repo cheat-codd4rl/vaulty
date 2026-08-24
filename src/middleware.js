@@ -75,13 +75,15 @@ export function middleware(request) {
       }
 
       // If all modern headers are missing (e.g. older Android WebViews), 
-      // we have to allow it to prevent breaking the app, since standard 
-      // cross-site requests will at least include Origin.
+      // we only allow it for the guest upload endpoints where it was failing, 
+      // avoiding reopening CSRF holes on authenticated host actions.
       if (!origin && !secFetchSite) {
-        return NextResponse.next();
+        if (request.nextUrl.pathname.startsWith('/api/upload')) {
+          return NextResponse.next();
+        }
       }
 
-      console.warn(`CSRF protection rejected request to ${request.nextUrl.pathname} from origin ${origin}, sec-fetch-site ${secFetchSite}`);
+      console.warn(`CSRF protection rejected request to ${request.nextUrl.pathname} (missing identifying headers)`);
       return NextResponse.json({ error: 'Forbidden: CSRF protection' }, { status: 403 });
     }
   }

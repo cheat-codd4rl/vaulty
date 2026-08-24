@@ -121,8 +121,7 @@ export default function UploadDropzone({
           } else {
             const res = await processImageFile(file);
             thumbnail = res.thumbDataUrl;
-            processedBlob = res.blob;
-            processedBlob.name = file.name;
+            processedBlob = new File([res.blob], file.name, { type: res.blob.type });
             setSessionFile(id, { file, blob: res.blob });
           }
         } catch (e) {
@@ -303,7 +302,12 @@ export default function UploadDropzone({
           }}
           onChange={(e) => {
             const files = e.target.files;
-            if (files && files.length) handleFiles(files);
+            if (files && files.length) {
+              handleFiles(files);
+              // Clear input value after files are read to allow re-uploading the same file
+              // Doing this in onChange instead of onClick avoids the Android "ghost file" bug
+              e.target.value = '';
+            }
           }}
         />
       </label>
