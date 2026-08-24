@@ -264,10 +264,13 @@ export default function HostDashboard() {
             {events.map((e) => {
               return (
                 <div key={e.id} style={{ position: 'relative' }}>
-                  <button
+                  <div
+                    role="button"
+                    tabIndex={0}
                     className={`vault-card ${e.status === 'deleting' ? 'disabled' : ''}`}
                     style={{ opacity: e.status === 'deleting' ? 0.6 : 1, cursor: e.status === 'deleting' ? 'not-allowed' : 'pointer', width: '100%', textAlign: 'left' }}
                     onClick={() => e.status !== 'deleting' && router.push('/host/' + e.id)}
+                    onKeyDown={(evt) => evt.key === 'Enter' && e.status !== 'deleting' && router.push('/host/' + e.id)}
                   >
                     <div className="vault-cover">
                       {e.cover && <img src={e.cover} alt="" onError={(evt) => evt.target.style.display = 'none'} />}
@@ -297,7 +300,7 @@ export default function HostDashboard() {
                         )}
                       </div>
                     </div>
-                  </button>
+                  </div>
                   {e.status === 'deleting' && e.deletionRequestedAt && (Date.now() - e.deletionRequestedAt > 10 * 60 * 1000) && (
                     <button 
                       className="btn" 
