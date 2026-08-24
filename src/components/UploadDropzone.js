@@ -122,6 +122,7 @@ export default function UploadDropzone({
             const res = await processImageFile(file);
             thumbnail = res.thumbDataUrl;
             processedBlob = res.blob;
+            processedBlob.name = file.name;
             setSessionFile(id, { file, blob: res.blob });
           }
         } catch (e) {
