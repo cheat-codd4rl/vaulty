@@ -450,7 +450,7 @@ export default function HostEventPage({ params }) {
 
       {/* Guests */}
       {guests.length > 0 && (
-        <div className="wrap section" style={{ paddingTop: 0 }}>
+        <div id="guests" className="wrap section" style={{ paddingTop: 0 }}>
           <div className="section-head">
             <div>
               <h2>Guests</h2>
@@ -498,7 +498,7 @@ export default function HostEventPage({ params }) {
       )}
 
       {/* Settings */}
-      <div className="wrap section" style={{ paddingTop: 0 }}>
+      <div id="settings" className="wrap section" style={{ paddingTop: 0 }}>
         <div className="section-head">
           <div>
             <h2>Settings</h2>

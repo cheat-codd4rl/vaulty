@@ -88,6 +88,7 @@ export async function createEvent(data) {
       body: JSON.stringify({
         name: data.name,
         date: data.date || '',
+        cover: data.cover || null,
         accessMode: data.accessMode || 'open',
         moderationMode: data.moderationMode || 'auto',
         photographerName: data.photographerName || '',

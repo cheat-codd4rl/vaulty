@@ -23,7 +23,7 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const { 
-      name, date, accessMode, moderationMode, photographerName, deviceToken, 
+      name, date, cover, accessMode, moderationMode, photographerName, deviceToken, 
       hostEmail, hostName, hostPassword 
     } = body;
 
@@ -136,7 +136,7 @@ export async function POST(request) {
       inviteToken,
       name,
       date: date || '',
-      cover: null,
+      cover: cover || null,
       accessMode: accessMode || 'open',
       hasPin: accessMode === 'pin',
       moderationMode: moderationMode || 'auto',

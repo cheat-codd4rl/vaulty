@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import NewEventModal from '@/components/NewEventModal';
-import { listHostEvents, listLegacyEvents, getDeviceToken } from '@/lib/store';
+import EventCardMenu from '@/components/EventCardMenu';
+import ConfirmDeleteModal from '@/components/ConfirmDeleteModal';
+import { listHostEvents, listLegacyEvents, getDeviceToken, updateEvent, listUploads } from '@/lib/store';
 import { fmtDate } from '@/lib/helpers';
 import { useToast } from '@/components/Toast';
 
@@ -17,6 +19,104 @@ export default function HostDashboard() {
   const [showModal, setShowModal] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  const [deleteModalEvent, setDeleteModalEvent] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteModalError, setDeleteModalError] = useState(null);
+  const [workingAction, setWorkingAction] = useState(null);
+
+  const handleCardAction = async (action, event) => {
+    switch (action) {
+      case 'edit':
+        router.push('/host/' + event.id + '#settings');
+        break;
+      case 'copy-link':
+        navigator.clipboard.writeText(window.location.origin + '/e/' + event.id);
+        showToast('Link copied');
+        break;
+      case 'toggle-pin':
+        router.push('/host/' + event.id + '#settings');
+        break;
+      case 'toggle-publish':
+        setWorkingAction(action);
+        await updateEvent({ ...event, moderationMode: event.moderationMode === 'approval' ? 'auto' : 'approval' });
+        loadEvents();
+        setWorkingAction(null);
+        break;
+      case 'download-zip':
+        setWorkingAction(action);
+        await handleZipDownload(event);
+        setWorkingAction(null);
+        break;
+      case 'guest-tracker':
+        router.push('/host/' + event.id + '#guests');
+        break;
+      case 'delete':
+        setDeleteModalError(null);
+        setDeleteModalEvent(event);
+        break;
+    }
+  };
+
+  const handleZipDownload = async (event) => {
+    const JSZip = (await import('jszip')).default;
+    const uploadsToDownload = await listUploads(event.id);
+    if (!uploadsToDownload || !uploadsToDownload.length) {
+      showToast('No photos to download yet');
+      return;
+    }
+    showToast('Building zip…');
+    const zip = new JSZip();
+    let count = 0;
+
+    for (const u of uploadsToDownload) {
+      try {
+        const url = u.downloadUrl || u.viewUrl || u.fileUrl;
+        if (url) {
+          const res = await fetch(url);
+          if (res.ok) {
+            const blob = await res.blob();
+            zip.file(u.filename, blob);
+            count++;
+          }
+        }
+      } catch {
+        /* skip failed files */
+      }
+    }
+
+    if (!count) {
+      showToast('No files available for download');
+      return;
+    }
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'vaulty-photos.zip';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    showToast('Zip downloaded (' + count + ' file' + (count === 1 ? '' : 's') + ')');
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteModalEvent) return;
+    setIsDeleting(true);
+    setDeleteModalError(null);
+    try {
+      const res = await fetch(`/api/events/${deleteModalEvent.id}/delete`, { method: 'POST' });
+      if (res.ok) {
+        showToast('Event deleted');
+        setDeleteModalEvent(null);
+        loadEvents();
+      } else {
+        const data = await res.json();
+        setDeleteModalError(data.error || 'Failed to delete event');
+      }
+    } catch (err) {
+      setDeleteModalError('Failed to delete event');
+    }
+    setIsDeleting(false);
+  };
 
   const loadEvents = async () => {
     try {
@@ -164,13 +264,18 @@ export default function HostDashboard() {
             {events.map((e) => {
               return (
                 <div key={e.id} style={{ position: 'relative' }}>
+                  {e.status !== 'deleting' && (
+                    <div className="absolute right-3 top-3 z-10">
+                      <EventCardMenu onAction={(action) => handleCardAction(action, e)} workingAction={workingAction} />
+                    </div>
+                  )}
                   <button
                     className={`vault-card ${e.status === 'deleting' ? 'disabled' : ''}`}
                     style={{ opacity: e.status === 'deleting' ? 0.6 : 1, cursor: e.status === 'deleting' ? 'not-allowed' : 'pointer', width: '100%', textAlign: 'left' }}
                     onClick={() => e.status !== 'deleting' && router.push('/host/' + e.id)}
                   >
                     <div className="vault-cover">
-                      {e.cover && <img src={e.cover} alt="" />}
+                      {e.cover && <img src={e.cover} alt="" onError={(evt) => evt.target.style.display = 'none'} />}
                     </div>
                     <div className="vault-body">
                       <h3>{e.name}</h3>
@@ -231,6 +336,18 @@ export default function HostDashboard() {
       </div>
       <Footer />
       {showModal && <NewEventModal onClose={() => setShowModal(false)} onCreated={handleCreated} />}
+      {deleteModalEvent && (
+        <ConfirmDeleteModal
+          eventName={deleteModalEvent.name}
+          isDeleting={isDeleting}
+          error={deleteModalError}
+          onConfirm={confirmDelete}
+          onCancel={() => {
+            setDeleteModalEvent(null);
+            setDeleteModalError(null);
+          }}
+        />
+      )}
     </>
   );
 }
