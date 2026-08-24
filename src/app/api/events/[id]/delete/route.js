@@ -48,10 +48,16 @@ export async function POST(request, { params }) {
       if (err.message === 'Deletion is already in progress') {
         return NextResponse.json({ error: 'Deletion is already in progress' }, { status: 429 });
       }
+      if (err.code === 'DRIVE_AUTH_REVOKED' || err.message === 'DRIVE_AUTH_REVOKED') {
+        return NextResponse.json({ error: 'Service Configuration Error: The underlying Google Drive integration needs to be reconnected by the administrator.' }, { status: 503 });
+      }
       return NextResponse.json({ error: 'Failed to completely delete event. Please retry.' }, { status: 500 });
     }
   } catch (err) {
     console.error('Delete event request failed:', err);
+    if (err.code === 'DRIVE_AUTH_REVOKED' || err.message === 'DRIVE_AUTH_REVOKED') {
+      return NextResponse.json({ error: 'Service Configuration Error: The underlying Google Drive integration needs to be reconnected by the administrator.' }, { status: 503 });
+    }
     return NextResponse.json({ error: 'Failed to process deletion' }, { status: 500 });
   }
 }

@@ -39,6 +39,7 @@ export async function processEventDeletion(eventId) {
       try {
         await deleteFromDrive(event.driveFolderId);
       } catch (err) {
+        if (err.code === 'DRIVE_AUTH_REVOKED' || err.message === 'DRIVE_AUTH_REVOKED') throw err;
         if (err.code !== 404 && err.status !== 404) {
           console.error('Failed to delete Drive folder:', err);
           throw new Error('Failed to delete media from Google Drive.');

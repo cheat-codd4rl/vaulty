@@ -64,16 +64,21 @@ export async function POST(request) {
     }
 
     if (upload.driveFileId) {
-      // Don't fail the whole delete if Drive cleanup fails
-      await deleteFromDrive(upload.driveFileId).catch((e) => {
+      try {
+        await deleteFromDrive(upload.driveFileId);
+      } catch (e) {
+        if (e.code === 'DRIVE_AUTH_REVOKED' || e.message === 'DRIVE_AUTH_REVOKED') throw e;
         console.error(`Drive delete failed for file ${upload.driveFileId}:`, e.message);
-      });
+      }
     }
     await uploadRef.delete();
 
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error('delete failed', err);
+    if (err.code === 'DRIVE_AUTH_REVOKED' || err.message === 'DRIVE_AUTH_REVOKED') {
+      return NextResponse.json({ error: 'Service Configuration Error: The underlying Google Drive integration needs to be reconnected by the administrator.' }, { status: 503 });
+    }
     return NextResponse.json({ error: 'Delete failed' }, { status: 500 });
   }
 }

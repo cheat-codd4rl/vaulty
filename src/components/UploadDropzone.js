@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback } from 'react';
 import { upload } from '@vercel/blob/client';
+import { useToast } from '@/components/Toast';
 import { genId, sleep, PLACEHOLDER_HEIC, PLACEHOLDER_VIDEO, PLACEHOLDER_GENERIC } from '@/lib/helpers';
 import { isHeic, isVideoFile, processImageFile, processVideoFile } from '@/lib/fileProcessing';
 import { addUploadRecord, getEvent, getDeviceToken, setSessionFile, saveMyUploadId } from '@/lib/store';
@@ -62,6 +63,7 @@ export default function UploadDropzone({
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [queue, setQueue] = useState([]);
+  const { showToast } = useToast();
 
   // "Cloud not configured" (no env vars, local dev) vs "cloud is configured"
   // are different situations. We decide this once at mount, not per-request.
@@ -152,13 +154,24 @@ export default function UploadDropzone({
             // don't silently degrade to local-only mode. A transient failure
             // should be a visible retry-able error, not silent data loss.
             console.error('Upload failed:', err);
-            setQueue((prev) =>
-              prev.map((q) =>
-                q.id === id
-                  ? { ...q, progress: 0, state: 'failed — tap to retry' }
-                  : q
-              )
-            );
+            if (err.message && err.message.includes('Service Configuration Error')) {
+              showToast(err.message, 'error');
+              setQueue((prev) =>
+                prev.map((q) =>
+                  q.id === id
+                    ? { ...q, progress: 0, state: 'temporarily unavailable' }
+                    : q
+                )
+              );
+            } else {
+              setQueue((prev) =>
+                prev.map((q) =>
+                  q.id === id
+                    ? { ...q, progress: 0, state: 'failed — tap to retry' }
+                    : q
+                )
+              );
+            }
             await sleep(4000);
             setQueue((prev) => prev.filter((q) => q.id !== id));
             continue;

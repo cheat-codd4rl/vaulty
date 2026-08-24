@@ -153,6 +153,11 @@ export async function POST(request) {
     // Best-effort cleanup even on failure, so a broken relay doesn't leave
     // orphaned files sitting in Blob storage indefinitely.
     if (blobUrl) del(blobUrl).catch(() => {});
+    
+    if (err.code === 'DRIVE_AUTH_REVOKED' || err.message === 'DRIVE_AUTH_REVOKED') {
+      return NextResponse.json({ error: 'Service Configuration Error: The underlying Google Drive integration needs to be reconnected by the administrator.' }, { status: 503 });
+    }
+    
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
   }
 }

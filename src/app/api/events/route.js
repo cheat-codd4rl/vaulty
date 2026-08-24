@@ -123,6 +123,9 @@ export async function POST(request) {
     try {
       driveFolderId = await createEventFolder(id, name);
     } catch (err) {
+      if (err.code === 'DRIVE_AUTH_REVOKED' || err.message === 'DRIVE_AUTH_REVOKED') {
+        throw err; // Bubble up to outer catch block to fail event creation
+      }
       console.error('Drive folder creation failed:', err.message);
     }
 
@@ -174,6 +177,9 @@ export async function POST(request) {
     return res;
   } catch (err) {
     console.error('Event creation failed:', err);
+    if (err.code === 'DRIVE_AUTH_REVOKED' || err.message === 'DRIVE_AUTH_REVOKED') {
+      return NextResponse.json({ error: 'Service Configuration Error: The underlying Google Drive integration needs to be reconnected by the administrator.' }, { status: 503 });
+    }
     return NextResponse.json({ error: 'Failed to create event' }, { status: 500 });
   }
 }

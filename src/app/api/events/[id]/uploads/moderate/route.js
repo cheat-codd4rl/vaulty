@@ -83,6 +83,7 @@ export async function POST(request, { params }) {
               failed.push({ id: uploadId, error: 'Not found' });
             }
           } catch (e) {
+            if (e.code === 'DRIVE_AUTH_REVOKED' || e.message === 'DRIVE_AUTH_REVOKED') throw e;
             console.error(`Failed processing ${uploadId}:`, e);
             failed.push({ id: uploadId, error: e.message || 'Operation failed' });
           }
@@ -107,6 +108,9 @@ export async function POST(request, { params }) {
     return NextResponse.json({ success: true, processed: successful.length, successful });
   } catch (err) {
     console.error('Bulk moderation failed:', err);
+    if (err.code === 'DRIVE_AUTH_REVOKED' || err.message === 'DRIVE_AUTH_REVOKED') {
+      return NextResponse.json({ error: 'Service Configuration Error: The underlying Google Drive integration needs to be reconnected by the administrator.' }, { status: 503 });
+    }
     return NextResponse.json({ error: 'Failed to process action' }, { status: 500 });
   }
 }
