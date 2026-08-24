@@ -125,11 +125,10 @@ export default function GuestProfileMenu({ eventId }) {
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   placeholder="Your Name"
-                  className="pin-input"
-                  style={{ width: '100%', height: '32px', fontSize: '14px', padding: '0 8px' }}
+                  style={{ width: '100%', height: '32px', fontSize: '14px', padding: '0 8px', background: 'var(--ink-3)', border: '1px solid var(--line-strong)', borderRadius: '4px', color: 'var(--text)', outline: 'none' }}
                   autoFocus
                 />
-                <button type="submit" disabled={saving || !editName.trim()} className="btn btn-sm btn-brass" style={{ height: '32px', padding: '0 12px' }}>
+                <button type="submit" disabled={saving || !editName.trim()} className="btn btn-sm btn-brass" style={{ height: '32px', padding: '0 12px', flexShrink: 0 }}>
                   Save
                 </button>
               </form>
@@ -155,15 +154,6 @@ export default function GuestProfileMenu({ eventId }) {
             <ThemeToggle />
           </div>
           
-          <div style={{ borderTop: '1px solid var(--line-strong)', marginTop: '4px', paddingTop: '4px' }}>
-            <button 
-              onClick={handleLeave}
-              className="btn btn-ghost btn-block" 
-              style={{ justifyContent: 'flex-start', height: '40px', padding: '0 12px', color: 'var(--rust)' }}
-            >
-              Leave Event
-            </button>
-          </div>
         </div>
       )}
     </div>
