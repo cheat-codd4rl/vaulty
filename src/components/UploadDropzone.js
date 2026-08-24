@@ -62,6 +62,7 @@ export default function UploadDropzone({
   collaboratorCode = null,
 }) {
   const inputRef = useRef(null);
+  const processedFilesRef = useRef(new Set());
   const [dragging, setDragging] = useState(false);
   const [queue, setQueue] = useState([]);
   const showToast = useToast();
@@ -76,13 +77,29 @@ export default function UploadDropzone({
       const MAX_FILE_SIZE = 1.5 * 1024 * 1024 * 1024;
 
       const validFiles = [];
+      let skippedCount = 0;
+      
       for (const file of Array.from(fileList)) {
         if (file.size > MAX_FILE_SIZE) {
           showToast(`${file.name} exceeds the 1.5 GB limit`, 'error');
           continue;
         }
+        
+        // Prevent duplicate uploads in the same session
+        const signature = `${file.name}-${file.size}-${file.lastModified || 0}`;
+        if (processedFilesRef.current.has(signature)) {
+          skippedCount++;
+          continue;
+        }
+        
+        processedFilesRef.current.add(signature);
         validFiles.push(file);
       }
+      
+      if (skippedCount > 0) {
+        showToast(`Skipped ${skippedCount} file${skippedCount > 1 ? 's' : ''} that were already uploaded`);
+      }
+      
       if (validFiles.length === 0) return;
       
       // Step 1: Immediately populate visual queue before ANY async operations
