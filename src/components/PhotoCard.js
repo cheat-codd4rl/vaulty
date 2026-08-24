@@ -34,13 +34,14 @@ export default function PhotoCard({
     onDelete(u.id);
   };
 
-  const cardContent = (
-    <>
+  return (
+    <div className={`photo ${selectable ? 'selectable-card' : ''} ${selected ? 'selected' : ''}`}>
       <div className="corner tl"></div>
       <div className="corner br"></div>
       {badge}
       <img src={u.thumbnail || (u.isVideo ? PLACEHOLDER_DOCUMENT_VIDEO : PLACEHOLDER_GENERIC)} alt={u.filename} />
       {playbadge && !u.thumbnail ? null : playbadge}
+      
       {!selectable && (
         <div className="actions">
           <button onClick={handleDownload} title="Download" aria-label="Download">
@@ -53,34 +54,29 @@ export default function PhotoCard({
           )}
         </div>
       )}
+
       {selectable && (
-        <div className={`check-circle ${selected ? 'checked' : ''}`}>
-          {selected && <svg viewBox="0 0 14 14" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="2.5 7.5 5.5 10.5 11.5 3.5" /></svg>}
-        </div>
+        <>
+          <button
+            type="button"
+            className="selection-overlay"
+            onClick={() => onSelect(u.id)}
+            role="checkbox"
+            aria-checked={selected}
+            aria-label={`Select ${u.filename}`}
+          ></button>
+          <div className={`check-circle ${selected ? 'checked' : ''}`}>
+            {selected && <svg viewBox="0 0 14 14" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="2.5 7.5 5.5 10.5 11.5 3.5" /></svg>}
+          </div>
+        </>
       )}
+
       <div className="cap">
         <span className="fn">{u.filename}</span>
         <span>{u.isVideo ? 'video' : ''}</span>
       </div>
-    </>
+    </div>
   );
-
-  if (selectable) {
-    return (
-      <button
-        type="button"
-        className={`photo selectable-card ${selected ? 'selected' : ''}`}
-        onClick={() => onSelect(u.id)}
-        role="checkbox"
-        aria-checked={selected}
-        aria-label={`Select ${u.filename}`}
-      >
-        {cardContent}
-      </button>
-    );
-  }
-
-  return <div className="photo">{cardContent}</div>;
 }
 
 export function downloadFile(upload) {
