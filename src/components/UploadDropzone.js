@@ -300,11 +300,6 @@ export default function UploadDropzone({
             overflow: 'hidden',
             zIndex: -1,
           }}
-          onClick={(e) => {
-            // Reset value on click so selecting the same file twice still fires change,
-            // but we avoid doing it synchronously in onChange which invalidates Blobs on Android.
-            e.target.value = '';
-          }}
           onChange={(e) => {
             const files = e.target.files;
             if (files && files.length) handleFiles(files);

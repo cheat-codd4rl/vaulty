@@ -158,6 +158,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Service Configuration Error: The underlying Google Drive integration needs to be reconnected by the administrator.' }, { status: 503 });
     }
     
-    return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
+    // TEMPORARY: Return actual error message to help diagnose production issues
+    return NextResponse.json({ error: `Upload failed: ${err.message || String(err)}` }, { status: 500 });
   }
 }
