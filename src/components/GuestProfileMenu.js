@@ -31,7 +31,11 @@ export default function GuestProfileMenu({ eventId }) {
       }
       setLoading(false);
     }
+    
     checkAuth();
+    
+    window.addEventListener('vaulty_guest_name_updated', checkAuth);
+    return () => window.removeEventListener('vaulty_guest_name_updated', checkAuth);
   }, [eventId]);
 
   useEffect(() => {

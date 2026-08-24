@@ -150,6 +150,7 @@ export default function GuestPage({ params }) {
       if (res.ok) {
         localStorage.setItem(`vaulty_guest_name_${id}`, guestNameInput.trim());
         setShowNameModal(false);
+        window.dispatchEvent(new Event('vaulty_guest_name_updated'));
         // Fully load the session/gallery as we are now in an authenticated state
         loadData();
       } else {
