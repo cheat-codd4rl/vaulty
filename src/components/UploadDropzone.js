@@ -168,8 +168,8 @@ export default function UploadDropzone({
             // don't silently degrade to local-only mode. A transient failure
             // should be a visible retry-able error, not silent data loss.
             console.error('Upload failed:', err);
+            showToast(err.message || 'Upload failed', 'error');
             if (err.message && err.message.includes('Service Configuration Error')) {
-              showToast(err.message, 'error');
               setQueue((prev) =>
                 prev.map((q) =>
                   q.id === id
