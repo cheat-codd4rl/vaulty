@@ -128,7 +128,7 @@ export default function HostEventPage({ params }) {
       } catch { /* ignore */ }
     };
     pollGuests();
-    const interval = setInterval(pollGuests, 15000);
+    const interval = setInterval(pollGuests, 5000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [event, id]);
 

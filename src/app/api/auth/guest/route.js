@@ -13,28 +13,21 @@ export async function POST(request) {
     let eventData = null;
 
     if (token) {
-      // 1. Resolve Token
-      const securityGroup = adminDb.collectionGroup('security');
-      const snapshot = await securityGroup.where('inviteToken', '==', token).limit(1).get();
+      // 1. Resolve Token — query events collection directly (inviteToken is stored on the event doc)
+      const snapshot = await adminDb.collection('events').where('inviteToken', '==', token).limit(1).get();
 
       if (snapshot.empty) {
         return NextResponse.json({ error: 'Invite not found or expired' }, { status: 404 });
       }
 
-      const privateDoc = snapshot.docs[0];
-      eventRef = privateDoc.ref.parent.parent;
-      if (!eventRef) {
-        return NextResponse.json({ error: 'Event reference not found' }, { status: 500 });
-      }
-      eventId = eventRef.id;
-
-      const eventDoc = await eventRef.get();
-      if (!eventDoc.exists) {
-        return NextResponse.json({ error: 'Event not found' }, { status: 404 });
-      }
-
+      const eventDoc = snapshot.docs[0];
+      eventRef = eventDoc.ref;
+      eventId = eventDoc.id;
       eventData = eventDoc.data();
-      privateData = privateDoc.data();
+
+      // Fetch security subcollection for PIN hash if needed
+      const privateDoc = await eventRef.collection('security').doc('private').get();
+      privateData = privateDoc.exists ? privateDoc.data() : null;
 
       // 2. Validate PIN if required
       if (eventData.hasPin || eventData.accessMode === 'pin') {
