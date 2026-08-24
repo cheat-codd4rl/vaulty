@@ -10,6 +10,7 @@
 */
 
 import { google } from 'googleapis';
+import { notifyOperatorDriveAuthFailed } from './notifyOperator';
 
 function getOAuth2Client() {
   const required = ['GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET', 'GOOGLE_OAUTH_REFRESH_TOKEN'];
@@ -38,6 +39,7 @@ async function withDriveErrorHandling(operation) {
       err.message?.includes('Token has been expired or revoked') ||
       err.response?.data?.error === 'invalid_grant'
     ) {
+      await notifyOperatorDriveAuthFailed({ errorMessage: err.message });
       const error = new Error('DRIVE_AUTH_REVOKED');
       error.code = 'DRIVE_AUTH_REVOKED';
       throw error;
