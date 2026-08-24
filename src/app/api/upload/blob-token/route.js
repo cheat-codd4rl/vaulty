@@ -56,7 +56,6 @@ export async function POST(request) {
         // Deliberately NOT doing the Drive relay here. This callback is
         // a fire-and-forget webhook from Vercel — the client calls
         // /api/upload directly once upload() resolves instead.
-        console.log('Blob staged:', blob.pathname);
       },
     });
     return NextResponse.json(jsonResponse);

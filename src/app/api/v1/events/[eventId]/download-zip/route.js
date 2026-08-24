@@ -58,7 +58,6 @@ export async function GET(request, { params }) {
     }
     
     if (!isHost && !isGuest) {
-      console.log('download-zip Unauthorized! eventId:', eventId, 'hostCookie:', !!hostCookie, 'guestCookie:', !!guestCookie);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -152,7 +151,6 @@ export async function GET(request, { params }) {
           controller.enqueue(chunk);
         });
         archive.on('end', () => {
-          console.log('ZIP stream ended successfully');
           controller.close();
         });
         archive.on('error', err => {

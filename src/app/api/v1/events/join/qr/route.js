@@ -8,7 +8,6 @@ export async function POST(request) {
     const { payload, qrToken, name } = body;
     const tokenPayload = payload || qrToken;
 
-    console.log('Mobile join QR received payload:', tokenPayload);
 
     if (!tokenPayload || !name || name.trim() === '') {
       return NextResponse.json({ error: 'Missing required fields: qrToken and name are required' }, { status: 400 });
