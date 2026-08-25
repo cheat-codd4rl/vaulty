@@ -32,7 +32,7 @@ export async function POST(request) {
   let blobUrl = null;
   try {
     const {
-      blobUrl: url, filename, mimeType,
+      blobUrl: url, filename, mimeType, originalSize,
       eventId, uploaderType: uploaderTypeInput, deviceToken, collaboratorCode,
       thumbnail,
     } = await request.json();
@@ -112,6 +112,7 @@ export async function POST(request) {
     const uploadDoc = {
       filename,
       size,
+      originalSize: originalSize || size,
       mimeType: mimeType || null,
       uploaderType,
       status,

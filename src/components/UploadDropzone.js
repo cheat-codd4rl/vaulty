@@ -5,7 +5,7 @@ import { upload } from '@vercel/blob/client';
 import { useToast } from '@/components/Toast';
 import { genId, sleep, PLACEHOLDER_HEIC, PLACEHOLDER_VIDEO, PLACEHOLDER_GENERIC, PLACEHOLDER_DOCUMENT_VIDEO } from '@/lib/helpers';
 import { isHeic, isVideoFile, processImageFile, processVideoFile } from '@/lib/fileProcessing';
-import { addUploadRecord, getEvent, getDeviceToken, setSessionFile, saveMyUploadId } from '@/lib/store';
+import { addUploadRecord, getEvent, getDeviceToken, setSessionFile, saveMyUploadId, listUploads } from '@/lib/store';
 import { isFirebaseConfigured } from '@/lib/firebase';
 
 /**
@@ -38,6 +38,7 @@ async function uploadFile(file, { eventId, uploaderType, deviceToken, collaborat
       blobUrl: blob.url,
       filename: file.name,
       mimeType: file.type,
+      originalSize: file.size,
       eventId,
       uploaderType,
       deviceToken,
@@ -76,6 +77,19 @@ export default function UploadDropzone({
       const DOCUMENT_MODE_THRESHOLD = 200 * 1024 * 1024;
       const MAX_FILE_SIZE = 1.5 * 1024 * 1024 * 1024;
 
+      // Pre-fill dedup set with files already uploaded to this event.
+      // Uses originalSize (the exact device byte count we now store).
+      try {
+        const existingUploads = await listUploads(eventId);
+        for (const u of existingUploads) {
+          if (u.filename && u.originalSize) {
+            processedFilesRef.current.add(`${u.filename}-${u.originalSize}`);
+          }
+        }
+      } catch (e) {
+        // Non-critical — first-time events may have no uploads yet
+      }
+
       const validFiles = [];
       let skippedCount = 0;
       
@@ -85,8 +99,8 @@ export default function UploadDropzone({
           continue;
         }
         
-        // Prevent duplicate uploads in the same session
-        const signature = `${file.name}-${file.size}-${file.lastModified || 0}`;
+        // Prevent duplicate uploads — same session or already on server
+        const signature = `${file.name}-${file.size}`;
         if (processedFilesRef.current.has(signature)) {
           skippedCount++;
           continue;
