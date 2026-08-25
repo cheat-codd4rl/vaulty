@@ -5,7 +5,7 @@ import { upload } from '@vercel/blob/client';
 import { useToast } from '@/components/Toast';
 import { genId, sleep, PLACEHOLDER_HEIC, PLACEHOLDER_VIDEO, PLACEHOLDER_GENERIC, PLACEHOLDER_DOCUMENT_VIDEO } from '@/lib/helpers';
 import { isHeic, isVideoFile, processImageFile, processVideoFile } from '@/lib/fileProcessing';
-import { addUploadRecord, getEvent, getDeviceToken, setSessionFile, saveMyUploadId, listUploads } from '@/lib/store';
+import { addUploadRecord, getEvent, getDeviceToken, setSessionFile, saveMyUploadId } from '@/lib/store';
 import { isFirebaseConfigured } from '@/lib/firebase';
 
 /**
@@ -76,20 +76,6 @@ export default function UploadDropzone({
       const DOCUMENT_MODE_THRESHOLD = 200 * 1024 * 1024;
       const MAX_FILE_SIZE = 1.5 * 1024 * 1024 * 1024;
 
-      // Pre-fill our tracking set with files already on the server
-      try {
-        const existingUploads = await listUploads(eventId);
-        existingUploads.forEach(u => {
-          if (u.filename && u.size) {
-            // We omit lastModified here because the server doesn't store it, 
-            // but name + exact byte size is a strong enough signature for duplicates.
-            processedFilesRef.current.add(`${u.filename}-${u.size}`);
-          }
-        });
-      } catch (e) {
-        console.warn('Could not fetch existing uploads for deduplication', e);
-      }
-
       const validFiles = [];
       let skippedCount = 0;
       
@@ -99,23 +85,19 @@ export default function UploadDropzone({
           continue;
         }
         
-        // Prevent duplicate uploads in the same session AND across past sessions
-        // We check two signatures: with and without lastModified.
-        const sigWithDate = `${file.name}-${file.size}-${file.lastModified || 0}`;
-        const sigServer = `${file.name}-${file.size}`;
-        
-        if (processedFilesRef.current.has(sigWithDate) || processedFilesRef.current.has(sigServer)) {
+        // Prevent duplicate uploads in the same session
+        const signature = `${file.name}-${file.size}-${file.lastModified || 0}`;
+        if (processedFilesRef.current.has(signature)) {
           skippedCount++;
           continue;
         }
         
-        processedFilesRef.current.add(sigWithDate);
-        processedFilesRef.current.add(sigServer);
+        processedFilesRef.current.add(signature);
         validFiles.push(file);
       }
       
       if (skippedCount > 0) {
-        showToast(`Skipped ${skippedCount} file${skippedCount > 1 ? 's' : ''} already in this event`);
+        showToast(`Skipped ${skippedCount} duplicate file${skippedCount > 1 ? 's' : ''}`);
       }
       
       if (validFiles.length === 0) return;
