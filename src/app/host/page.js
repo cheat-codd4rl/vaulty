@@ -274,12 +274,12 @@ export default function HostDashboard() {
                   >
                     <div className="vault-cover">
                       {e.cover && <img src={e.cover} alt="" onError={(evt) => evt.target.style.display = 'none'} />}
-                      {e.status !== 'deleting' && (
-                        <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 5 }}>
-                          <EventCardMenu onAction={(action) => handleCardAction(action, e)} workingAction={workingAction} />
-                        </div>
-                      )}
                     </div>
+                    {e.status !== 'deleting' && (
+                      <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 10 }}>
+                        <EventCardMenu onAction={(action) => handleCardAction(action, e)} workingAction={workingAction} />
+                      </div>
+                    )}
                     <div className="vault-body">
                       <h3>{e.name}</h3>
                       <div className="meta">

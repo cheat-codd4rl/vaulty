@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import { MoreVertical, Pencil, Link2, KeyRound, Download, Users, Trash2, Eye } from 'lucide-react';
 
 const MENU_ITEMS = [
@@ -89,16 +88,16 @@ export default function EventCardMenu({ onAction, workingAction }) {
   }
 
   const menuStyle = {
-    position: 'fixed',
-    top: menuPos.openUpward ? 'auto' : menuPos.top,
-    bottom: menuPos.openUpward ? menuPos.bottom : 'auto',
-    left: menuPos.left,
-    zIndex: 9999,
+    position: 'absolute',
+    top: menuPos.openUpward ? 'auto' : 'calc(100% + 6px)',
+    bottom: menuPos.openUpward ? 'calc(100% + 6px)' : 'auto',
+    right: 0,
+    zIndex: 100,
     transformOrigin: menuPos.openUpward ? 'bottom right' : 'top right',
   };
 
   return (
-    <>
+    <div style={{ position: 'relative', display: 'inline-block' }} ref={triggerRef}>
       <button
         ref={triggerRef}
         type="button"
@@ -115,7 +114,7 @@ export default function EventCardMenu({ onAction, workingAction }) {
         <MoreVertical style={{ width: '16px', height: '16px' }} />
       </button>
 
-      {mounted && open && createPortal(
+      {open && (
         <div
           ref={menuRef}
           role="menu"
@@ -149,9 +148,8 @@ export default function EventCardMenu({ onAction, workingAction }) {
               {workingAction === key ? 'Working...' : label}
             </button>
           ))}
-        </div>,
-        document.body
+        </div>
       )}
-    </>
+    </div>
   );
 }

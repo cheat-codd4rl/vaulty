@@ -4,7 +4,7 @@ import { useRef, useState, useCallback } from 'react';
 import { upload } from '@vercel/blob/client';
 import { useToast } from '@/components/Toast';
 import { genId, sleep, PLACEHOLDER_HEIC, PLACEHOLDER_VIDEO, PLACEHOLDER_GENERIC, PLACEHOLDER_DOCUMENT_VIDEO } from '@/lib/helpers';
-import { isHeic, isVideoFile, processImageFile, processVideoFile } from '@/lib/fileProcessing';
+import { isHeic, isVideoFile, processImageFile, processVideoFile, computeFileHash } from '@/lib/fileProcessing';
 import { addUploadRecord, getEvent, getDeviceToken, setSessionFile, saveMyUploadId, listUploads } from '@/lib/store';
 import { isFirebaseConfigured } from '@/lib/firebase';
 
@@ -16,7 +16,7 @@ import { isFirebaseConfigured } from '@/lib/firebase';
  * simulated/XHR progress bar. The file's bytes never pass through a
  * Vercel Function, so the 4.5MB body limit doesn't apply.
  */
-async function uploadFile(file, { eventId, uploaderType, deviceToken, collaboratorCode, thumbnail, onProgress }) {
+async function uploadFile(file, { eventId, uploaderType, deviceToken, collaboratorCode, thumbnail, fileHash, onProgress }) {
   const clientPayload = JSON.stringify({ eventId, uploaderType, collaboratorCode });
 
   // Step 1: browser uploads directly to Vercel Blob.
@@ -39,6 +39,7 @@ async function uploadFile(file, { eventId, uploaderType, deviceToken, collaborat
       filename: file.name,
       mimeType: file.type,
       originalSize: file.size,
+      fileHash,
       eventId,
       uploaderType,
       deviceToken,
@@ -78,12 +79,11 @@ export default function UploadDropzone({
       const MAX_FILE_SIZE = 1.5 * 1024 * 1024 * 1024;
 
       // Pre-fill dedup set with files already uploaded to this event.
-      // Uses originalSize (the exact device byte count we now store).
       try {
         const existingUploads = await listUploads(eventId);
         for (const u of existingUploads) {
-          if (u.filename && u.originalSize) {
-            processedFilesRef.current.add(`${u.filename}-${u.originalSize}`);
+          if (u.fileHash) {
+            processedFilesRef.current.add(u.fileHash);
           }
         }
       } catch (e) {
@@ -99,19 +99,22 @@ export default function UploadDropzone({
           continue;
         }
         
-        // Prevent duplicate uploads — same session or already on server
-        const signature = `${file.name}-${file.size}`;
-        if (processedFilesRef.current.has(signature)) {
+        // Compute robust content hash
+        const fileHash = await computeFileHash(file);
+        
+        if (processedFilesRef.current.has(fileHash)) {
           skippedCount++;
           continue;
         }
         
-        processedFilesRef.current.add(signature);
+        processedFilesRef.current.add(fileHash);
+        // We attach the hash to the file object temporarily so we can pass it to the API
+        file.computedHash = fileHash;
         validFiles.push(file);
       }
       
       if (skippedCount > 0) {
-        showToast(`Skipped ${skippedCount} duplicate file${skippedCount > 1 ? 's' : ''}`);
+        showToast(`Skipped ${skippedCount} file${skippedCount > 1 ? 's' : ''} already in the gallery`);
       }
       
       if (validFiles.length === 0) return;
@@ -185,6 +188,7 @@ export default function UploadDropzone({
                 deviceToken,
                 collaboratorCode,
                 thumbnail,
+                fileHash: file.computedHash,
                 onProgress: (pct) => {
                   setQueue((prev) =>
                     prev.map((q) => (q.id === id ? { ...q, progress: pct } : q))
