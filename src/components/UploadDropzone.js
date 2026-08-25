@@ -78,66 +78,75 @@ export default function UploadDropzone({
       const DOCUMENT_MODE_THRESHOLD = 200 * 1024 * 1024;
       const MAX_FILE_SIZE = 1.5 * 1024 * 1024 * 1024;
 
-      // Pre-fill dedup set with files already uploaded to this event.
-      try {
-        const existingUploads = await listUploads(eventId);
-        for (const u of existingUploads) {
-          if (u.fileHash) {
-            processedFilesRef.current.add(u.fileHash);
-          }
-        }
-      } catch (e) {
-        // Non-critical — first-time events may have no uploads yet
-      }
-
-      const validFiles = [];
+      let validFiles = [];
       let skippedCount = 0;
-      
-      for (const file of Array.from(fileList)) {
-        if (file.size > MAX_FILE_SIZE) {
-          showToast(`${file.name} exceeds the 1.5 GB limit`, 'error');
-          continue;
+      let initialItems = [];
+      let ev = event;
+      let deviceToken = null;
+
+      try {
+        // Pre-fill dedup set with files already uploaded to this event.
+        try {
+          const existingUploads = await listUploads(eventId);
+          for (const u of existingUploads) {
+            if (u.fileHash) {
+              processedFilesRef.current.add(u.fileHash);
+            }
+          }
+        } catch (e) {
+          // Non-critical — first-time events may have no uploads yet
         }
         
-        // Compute robust content hash
-        const fileHash = await computeFileHash(file);
-        
-        if (processedFilesRef.current.has(fileHash)) {
-          skippedCount++;
-          continue;
+        for (const file of Array.from(fileList)) {
+          if (file.size > MAX_FILE_SIZE) {
+            showToast(`${file.name} exceeds the 1.5 GB limit`, 'error');
+            continue;
+          }
+          
+          // Compute robust content hash
+          const fileHash = await computeFileHash(file);
+          
+          if (processedFilesRef.current.has(fileHash)) {
+            skippedCount++;
+            continue;
+          }
+          
+          processedFilesRef.current.add(fileHash);
+          // We attach the hash to the file object temporarily so we can pass it to the API
+          file.computedHash = fileHash;
+          validFiles.push(file);
         }
         
-        processedFilesRef.current.add(fileHash);
-        // We attach the hash to the file object temporarily so we can pass it to the API
-        file.computedHash = fileHash;
-        validFiles.push(file);
-      }
-      
-      if (skippedCount > 0) {
-        showToast(`Skipped ${skippedCount} file${skippedCount > 1 ? 's' : ''} already in the gallery`);
-      }
-      
-      if (validFiles.length === 0) return;
-      
-      // Step 1: Immediately populate visual queue before ANY async operations
-      const initialItems = validFiles.map(file => {
-        const id = genId('up_');
-        return {
-          id,
-          file,
-          heic: isHeic(file),
-          video: isVideoFile(file),
-          documentMode: isVideoFile(file) && file.size > DOCUMENT_MODE_THRESHOLD,
-          qItem: { id, filename: file.name, progress: 0, state: 'processing', thumbnail: null }
-        };
-      });
+        if (skippedCount > 0) {
+          showToast(`Skipped ${skippedCount} file${skippedCount > 1 ? 's' : ''} already in the gallery`);
+        }
+        
+        if (validFiles.length === 0) return;
+        
+        // Step 1: Immediately populate visual queue before ANY async operations
+        initialItems = validFiles.map(file => {
+          const id = genId('up_');
+          return {
+            id,
+            file,
+            heic: isHeic(file),
+            video: isVideoFile(file),
+            documentMode: isVideoFile(file) && file.size > DOCUMENT_MODE_THRESHOLD,
+            qItem: { id, filename: file.name, progress: 0, state: 'processing', thumbnail: null }
+          };
+        });
 
-      setQueue((prev) => [...initialItems.map(i => i.qItem), ...prev]);
+        setQueue((prev) => [...initialItems.map(i => i.qItem), ...prev]);
 
-      // Step 2: Fetch prerequisites
-      const ev = event || await getEvent(eventId);
-      if (!ev) return;
-      const deviceToken = await getDeviceToken();
+        // Step 2: Fetch prerequisites
+        ev = event || await getEvent(eventId);
+        if (!ev) return;
+        deviceToken = await getDeviceToken();
+      } catch (err) {
+        console.error("Critical error in upload pre-processing:", err);
+        showToast("An error occurred preparing your upload. Please try again.", "error");
+        return;
+      }
 
       // Helper function to process and upload a single item
       const processItem = async (item) => {
