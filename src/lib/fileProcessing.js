@@ -31,6 +31,11 @@ export async function computeFileHash(file) {
     offset += buffer.byteLength;
   }
   
+  // Fallback for insecure contexts (like testing on local IP) where crypto.subtle is undefined
+  if (!crypto || !crypto.subtle) {
+    return `fallback-${file.name}-${file.size}-${file.lastModified}`;
+  }
+
   const hashBuffer = await crypto.subtle.digest('SHA-256', combined);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
