@@ -79,46 +79,15 @@ export default function UploadDropzone({
       const MAX_FILE_SIZE = 1.5 * 1024 * 1024 * 1024;
 
       let validFiles = [];
-      let skippedCount = 0;
       let initialItems = [];
-      let ev = event;
-      let deviceToken = null;
 
       try {
-        // Pre-fill dedup set with files already uploaded to this event.
-        try {
-          const existingUploads = await listUploads(eventId);
-          for (const u of existingUploads) {
-            if (u.fileHash) {
-              processedFilesRef.current.add(u.fileHash);
-            }
-          }
-        } catch (e) {
-          // Non-critical — first-time events may have no uploads yet
-        }
-        
         for (const file of Array.from(fileList)) {
           if (file.size > MAX_FILE_SIZE) {
             showToast(`${file.name} exceeds the 1.5 GB limit`, 'error');
             continue;
           }
-          
-          // Compute robust content hash
-          const fileHash = await computeFileHash(file);
-          
-          if (processedFilesRef.current.has(fileHash)) {
-            skippedCount++;
-            continue;
-          }
-          
-          processedFilesRef.current.add(fileHash);
-          // We attach the hash to the file object temporarily so we can pass it to the API
-          file.computedHash = fileHash;
           validFiles.push(file);
-        }
-        
-        if (skippedCount > 0) {
-          showToast(`Skipped ${skippedCount} file${skippedCount > 1 ? 's' : ''} already in the gallery`);
         }
         
         if (validFiles.length === 0) return;
@@ -132,26 +101,61 @@ export default function UploadDropzone({
             heic: isHeic(file),
             video: isVideoFile(file),
             documentMode: isVideoFile(file) && file.size > DOCUMENT_MODE_THRESHOLD,
-            qItem: { id, filename: file.name, progress: 0, state: 'processing', thumbnail: null }
+            qItem: { id, filename: file.name, progress: 0, state: 'pending', thumbnail: null }
           };
         });
 
         setQueue((prev) => [...initialItems.map(i => i.qItem), ...prev]);
-
-        // Step 2: Fetch prerequisites
-        ev = event || await getEvent(eventId);
-        if (!ev) return;
-        deviceToken = await getDeviceToken();
       } catch (err) {
         console.error("Critical error in upload pre-processing:", err);
         showToast("An error occurred preparing your upload. Please try again.", "error");
         return;
       }
 
+      // Step 2: Fetch prerequisites in a shared promise so workers can await it
+      const prereqsPromise = (async () => {
+        try {
+          const [ev, dt, existingUploads] = await Promise.all([
+            event ? Promise.resolve(event) : getEvent(eventId),
+            getDeviceToken(),
+            listUploads(eventId).catch(() => []) // Catch so dedup failure doesn't block upload
+          ]);
+          for (const u of existingUploads) {
+            if (u.fileHash) processedFilesRef.current.add(u.fileHash);
+          }
+          return { ev, dt };
+        } catch (e) {
+          console.error("Failed to fetch prerequisites:", e);
+          return null;
+        }
+      })();
+
       // Helper function to process and upload a single item
       const processItem = async (item) => {
         const { id, file, heic, video, documentMode } = item;
         try {
+          const prereqs = await prereqsPromise;
+          if (!prereqs || !prereqs.ev) {
+            setQueue((prev) => prev.map((q) => (q.id === id ? { ...q, state: 'failed - no event' } : q)));
+            await sleep(4000);
+            setQueue((prev) => prev.filter((q) => q.id !== id));
+            return;
+          }
+          const { ev, dt: deviceToken } = prereqs;
+
+          // Hashing and deduplication
+          setQueue((prev) => prev.map((q) => (q.id === id ? { ...q, state: 'checking...' } : q)));
+          const fileHash = await computeFileHash(file);
+          
+          if (processedFilesRef.current.has(fileHash)) {
+            showToast(`Skipped ${file.name} — already uploaded`);
+            setQueue((prev) => prev.filter((q) => q.id !== id));
+            return; // Skip!
+          }
+          
+          processedFilesRef.current.add(fileHash);
+          file.computedHash = fileHash;
+
           /* ── Process file (thumbnail, resize) ── */
           setQueue((prev) =>
             prev.map((q) =>
@@ -256,7 +260,7 @@ export default function UploadDropzone({
               fileUrl: null,
               exifStripped: !heic && !video,
               duration,
-              status: uploaderType === 'photographer' ? 'approved' : event.moderationMode === 'approval' ? 'pending' : 'approved',
+              status: uploaderType === 'photographer' ? 'approved' : ev.moderationMode === 'approval' ? 'pending' : 'approved',
               createdAt: Date.now(),
             };
 

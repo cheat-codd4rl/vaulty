@@ -37,7 +37,11 @@ export async function computeFileHash(file) {
       offset += buffer.byteLength;
     }
     
-    // Fallback for insecure contexts (like testing on local IP) where crypto.subtle is undefined
+    // Fallback for insecure contexts or older browsers (like iOS 13-) where crypto is missing.
+    // Note: This pseudo-hash (`name-size-lastModified`) is not cryptographically secure and is not content-based.
+    // It carries a negligible but theoretical risk of false-positive collision if two users upload 
+    // different photos that magically share the exact same filename, exact byte size, and exact millisecond timestamp.
+    // However, it prevents upload failure on legacy devices while preserving dedup for the vast majority.
     if (typeof crypto === 'undefined' || !crypto.subtle) {
       return `fallback-${file.name}-${file.size}-${file.lastModified}`;
     }
