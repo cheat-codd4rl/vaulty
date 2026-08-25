@@ -59,6 +59,14 @@ export default function NewEventModal({ onClose, onCreated }) {
   const handleCover = async (e) => {
     const f = e.target.files[0];
     if (!f) return;
+    if (f.name && /\.(heic|heif)$/i.test(f.name)) {
+      showToast("HEIC images aren't supported for covers. Please select a JPG or PNG.");
+      return;
+    }
+    if (f.type.startsWith('video/')) {
+      showToast("Video covers aren't supported yet. Please select an image.");
+      return;
+    }
     try {
       const res = await processImageFile(f);
       const c = document.createElement('canvas');
@@ -142,7 +150,7 @@ export default function NewEventModal({ onClose, onCreated }) {
             <input
               ref={coverInput}
               type="file"
-              accept="image/*"
+              accept="image/jpeg, image/png, image/webp"
               style={{ display: 'none' }}
               onChange={handleCover}
             />

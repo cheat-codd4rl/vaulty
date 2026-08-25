@@ -73,6 +73,7 @@ export function processImageFile(file) {
         ctx.drawImage(img, 0, 0, w, h);
         
         // Free image memory immediately after drawing
+        img.onerror = null;
         img.src = '';
         
         canvas.toBlob(
