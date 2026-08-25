@@ -3,42 +3,52 @@
 import { PLACEHOLDER_HEIC, PLACEHOLDER_VIDEO, PLACEHOLDER_GENERIC } from './helpers';
 
 export async function computeFileHash(file) {
-  // Hash a sample of the file to be extremely fast even on 1GB+ videos
-  // We sample 100KB from the start, middle, and end, plus the file size
-  const CHUNK_SIZE = 100 * 1024;
-  const size = file.size;
-  
-  const mid = Math.floor(size / 2);
-  const slices = [
-    file.slice(0, Math.min(CHUNK_SIZE, size)),
-    file.slice(Math.max(0, mid - CHUNK_SIZE / 2), Math.min(size, mid + CHUNK_SIZE / 2)),
-    file.slice(Math.max(0, size - CHUNK_SIZE), size)
-  ];
-  
-  const buffers = await Promise.all(slices.map(slice => slice.arrayBuffer()));
-  
-  // Total byte size of our sampled buffer
-  const totalLength = buffers.reduce((acc, b) => acc + b.byteLength, 0);
-  const combined = new Uint8Array(totalLength + 8); // +8 for the size metadata
-  
-  // Write the size as a 64-bit float at the beginning
-  new DataView(combined.buffer).setFloat64(0, size, true);
-  
-  // Write the file samples
-  let offset = 8;
-  for (const buffer of buffers) {
-    combined.set(new Uint8Array(buffer), offset);
-    offset += buffer.byteLength;
-  }
-  
-  // Fallback for insecure contexts (like testing on local IP) where crypto.subtle is undefined
-  if (!crypto || !crypto.subtle) {
+  try {
+    // Hash a sample of the file to be extremely fast even on 1GB+ videos
+    // We sample 100KB from the start, middle, and end, plus the file size
+    const CHUNK_SIZE = 100 * 1024;
+    const size = file.size;
+    
+    const mid = Math.floor(size / 2);
+    const slices = [
+      file.slice(0, Math.min(CHUNK_SIZE, size)),
+      file.slice(Math.max(0, mid - CHUNK_SIZE / 2), Math.min(size, mid + CHUNK_SIZE / 2)),
+      file.slice(Math.max(0, size - CHUNK_SIZE), size)
+    ];
+    
+    // Fallback for older browsers (iOS 13-) that don't support Blob.arrayBuffer()
+    if (typeof slices[0].arrayBuffer !== 'function') {
+      return `fallback-${file.name}-${file.size}-${file.lastModified}`;
+    }
+
+    const buffers = await Promise.all(slices.map(slice => slice.arrayBuffer()));
+    
+    // Total byte size of our sampled buffer
+    const totalLength = buffers.reduce((acc, b) => acc + b.byteLength, 0);
+    const combined = new Uint8Array(totalLength + 8); // +8 for the size metadata
+    
+    // Write the size as a 64-bit float at the beginning
+    new DataView(combined.buffer).setFloat64(0, size, true);
+    
+    // Write the file samples
+    let offset = 8;
+    for (const buffer of buffers) {
+      combined.set(new Uint8Array(buffer), offset);
+      offset += buffer.byteLength;
+    }
+    
+    // Fallback for insecure contexts (like testing on local IP) where crypto.subtle is undefined
+    if (typeof crypto === 'undefined' || !crypto.subtle) {
+      return `fallback-${file.name}-${file.size}-${file.lastModified}`;
+    }
+
+    const hashBuffer = await crypto.subtle.digest('SHA-256', combined);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (err) {
+    console.error("File hash failed, using fallback:", err);
     return `fallback-${file.name}-${file.size}-${file.lastModified}`;
   }
-
-  const hashBuffer = await crypto.subtle.digest('SHA-256', combined);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 export function isHeic(file) {
